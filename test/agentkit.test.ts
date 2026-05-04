@@ -10,6 +10,7 @@ const templatesDir = path.join(root, "templates");
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(root, "package.json"), "utf8"),
 ) as {
+  name: string;
   version: string;
   bin: Record<string, string>;
 };
@@ -49,6 +50,7 @@ describe("agentkit CLI", () => {
   });
 
   test("package bin points to the built CLI", () => {
+    expect(packageJson.name).toBe("thomas-agentkit");
     expect(packageJson.bin.agentkit).toBe("./dist/cli.js");
   });
 

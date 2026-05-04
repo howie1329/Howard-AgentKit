@@ -11,37 +11,37 @@ AgentKit is not an AI agent. It is a small scaffolding tool for making repositor
 Install templates into the current directory:
 
 ```bash
-npx agentkit init
+npx thomas-agentkit init
 ```
 
 Install into another directory:
 
 ```bash
-npx agentkit init ./my-project
+npx thomas-agentkit init ./my-project
 ```
 
 Preview changes without writing files:
 
 ```bash
-npx agentkit init --dry-run
+npx thomas-agentkit init --dry-run
 ```
 
 Overwrite existing files:
 
 ```bash
-npx agentkit init --force
+npx thomas-agentkit init --force
 ```
 
 Use the optional interactive flow:
 
 ```bash
-npx agentkit init --interactive
+npx thomas-agentkit init --interactive
 ```
 
 List bundled templates:
 
 ```bash
-npx agentkit --list
+npx thomas-agentkit --list
 ```
 
 ## Installed Files
@@ -89,7 +89,7 @@ npm run build
 npm test
 ```
 
-The package command is `agentkit`, backed by the compiled TypeScript entrypoint at `dist/cli.js`.
+The npm package is `thomas-agentkit`. The installed CLI command is `agentkit`, backed by the compiled TypeScript entrypoint at `dist/cli.js`.
 
 ## Philosophy
 
