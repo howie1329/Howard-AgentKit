@@ -14,7 +14,7 @@ Install templates into the current directory:
 npx thomas-agentkit init
 ```
 
-By default, `init` opens a short interactive setup flow in terminals.
+By default, `init` opens a short interactive setup flow in terminals. After choosing install options, you can optionally personalize repository-level template placeholders such as project name, description, issue tracker, docs paths, stack summary, and project commands.
 
 Install into another directory:
 
@@ -27,6 +27,8 @@ Accept defaults without prompts:
 ```bash
 npx thomas-agentkit init --yes
 ```
+
+`--yes` keeps installed templates generic and leaves placeholders for later editing.
 
 Preview changes without writing files:
 
@@ -104,6 +106,8 @@ Generated content
 ```
 
 `agentkit update` only replaces content inside matching managed blocks. User edits before or after those blocks are preserved. Existing legacy files without managed blocks are reported as unmanaged and left untouched.
+
+Interactive personalization only applies during `agentkit init` when files are created or overwritten. It does not write a config file, and `agentkit update` does not reapply personalized values.
 
 ## Presets
 

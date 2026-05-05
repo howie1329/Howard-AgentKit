@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { intro, isCancel, multiselect, select, text } from "@clack/prompts";
+import { confirm, intro, isCancel, multiselect, select, text } from "@clack/prompts";
 import { Command } from "commander";
 import { constants as fsConstants } from "node:fs";
 import { access, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
@@ -191,6 +191,187 @@ function addStackReference(file, content, preset) {
     }
     return `${content.trimEnd()}\n${stackNote}`;
 }
+function cleanPersonalizationValue(value) {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
+}
+function replaceIfProvided(content, placeholder, value) {
+    const replacement = cleanPersonalizationValue(value);
+    return replacement ? content.replaceAll(placeholder, replacement) : content;
+}
+function getProvidedCommands(values) {
+    return [values.testCommand, values.lintCommand, values.buildCommand]
+        .map(cleanPersonalizationValue)
+        .filter((command) => Boolean(command));
+}
+function commandDescription(command, kind) {
+    const descriptions = {
+        test: "Run tests",
+        lint: "Run lint checks",
+        build: "Build or check the project",
+    };
+    return descriptions[kind] ?? command;
+}
+function replaceCommandBlock(content, commands) {
+    if (commands.length === 0) {
+        return content;
+    }
+    const commandBlock = ["```bash", ...commands, "```"].join("\n");
+    return content
+        .replace(/```bash\nnpm install\nnpm test\nnpm run build\nnpm run lint\n```/, commandBlock)
+        .replace(/```bash\nnpm test\nnpm run lint\nnpm run build\n```/, commandBlock);
+}
+function replaceAgentCommandTable(content, values) {
+    const rows = [
+        cleanPersonalizationValue(values.testCommand)
+            ? `| \`${cleanPersonalizationValue(values.testCommand)}\` | ${commandDescription(values.testCommand ?? "", "test")} |`
+            : undefined,
+        cleanPersonalizationValue(values.lintCommand)
+            ? `| \`${cleanPersonalizationValue(values.lintCommand)}\` | ${commandDescription(values.lintCommand ?? "", "lint")} |`
+            : undefined,
+        cleanPersonalizationValue(values.buildCommand)
+            ? `| \`${cleanPersonalizationValue(values.buildCommand)}\` | ${commandDescription(values.buildCommand ?? "", "build")} |`
+            : undefined,
+    ].filter((row) => Boolean(row));
+    if (rows.length === 0) {
+        return content;
+    }
+    const nextTable = ["| Command | Description |", "| --- | --- |", ...rows].join("\n");
+    return content.replace(/\| Command \| Description \|\n\| --- \| --- \|\n\| `npm run dev` \| Start the local development server \|\n\| `npm test` \| Run tests \|\n\| `npm run lint` \| Run lint checks \|\n\| `npm run build` \| Build the project \|/, nextTable);
+}
+function replaceStackSummary(content, stackSummary) {
+    const summary = cleanPersonalizationValue(stackSummary);
+    if (!summary) {
+        return content;
+    }
+    const stackItems = summary
+        .split(/\r?\n|,/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => `- ${item}`)
+        .join("\n");
+    return content.replace(/- \[Primary framework\]\n- \[Language\/runtime\]\n- \[Backend\/data layer\]\n- \[Styling system\]\n- \[Test tools\]\n- \[Lint\/format tools\]/, stackItems);
+}
+export function personalizeTemplateContent(file, content, values) {
+    if (!values) {
+        return content;
+    }
+    if (file === "PRD-TEMPLATE.md" ||
+        file === "IMPLEMENTATION-BRIEF-TEMPLATE.md" ||
+        file === ".github/pull_request_template.md") {
+        return content;
+    }
+    let personalized = content;
+    if (file === "AGENTS.md" || file === "DESIGN-SYSTEM.md") {
+        personalized = replaceIfProvided(personalized, "[Project Name]", values.projectName);
+    }
+    if (file === "AGENTS.md") {
+        personalized = replaceIfProvided(personalized, "[short project description]", values.projectDescription);
+        personalized = replaceIfProvided(personalized, "[issue tracker, e.g. Linear or GitHub Issues]", values.issueTracker);
+        personalized = replaceIfProvided(personalized, "[design system path, e.g. docs/design-system.md]", values.designSystemPath);
+        personalized = replaceIfProvided(personalized, "[design system path]", values.designSystemPath);
+        personalized = replaceIfProvided(personalized, "[briefs path, e.g. docs/briefs]", values.briefsPath);
+        personalized = replaceIfProvided(personalized, "[test command, e.g. npm test]", values.testCommand);
+        personalized = replaceIfProvided(personalized, "[lint command, e.g. npm run lint]", values.lintCommand);
+        personalized = replaceIfProvided(personalized, "[build/check command, e.g. npm run build]", values.buildCommand);
+        personalized = replaceAgentCommandTable(personalized, values);
+        personalized = replaceStackSummary(personalized, values.stackSummary);
+    }
+    if (file === "CLAUDE.md" || file === "CODE-QUALITY.md") {
+        personalized = replaceCommandBlock(personalized, getProvidedCommands(values));
+    }
+    return personalized;
+}
+async function promptForPersonalization() {
+    const shouldPersonalize = await confirm({
+        message: "Personalize template placeholders?",
+        initialValue: false,
+    });
+    if (isCancel(shouldPersonalize)) {
+        process.exit(130);
+    }
+    if (!shouldPersonalize) {
+        return undefined;
+    }
+    const projectName = await text({
+        message: "Project name",
+        placeholder: "[Project Name]",
+    });
+    if (isCancel(projectName)) {
+        process.exit(130);
+    }
+    const projectDescription = await text({
+        message: "Short project description",
+        placeholder: "[short project description]",
+    });
+    if (isCancel(projectDescription)) {
+        process.exit(130);
+    }
+    const issueTracker = await text({
+        message: "Issue tracker name",
+        placeholder: "Linear or GitHub Issues",
+    });
+    if (isCancel(issueTracker)) {
+        process.exit(130);
+    }
+    const designSystemPath = await text({
+        message: "Design system path",
+        placeholder: "docs/design-system.md",
+    });
+    if (isCancel(designSystemPath)) {
+        process.exit(130);
+    }
+    const briefsPath = await text({
+        message: "Briefs path",
+        placeholder: "docs/briefs",
+    });
+    if (isCancel(briefsPath)) {
+        process.exit(130);
+    }
+    const testCommand = await text({
+        message: "Test command",
+        placeholder: "npm test",
+    });
+    if (isCancel(testCommand)) {
+        process.exit(130);
+    }
+    const lintCommand = await text({
+        message: "Lint command",
+        placeholder: "npm run lint",
+    });
+    if (isCancel(lintCommand)) {
+        process.exit(130);
+    }
+    const buildCommand = await text({
+        message: "Build/check command",
+        placeholder: "npm run build",
+    });
+    if (isCancel(buildCommand)) {
+        process.exit(130);
+    }
+    const stackSummary = await text({
+        message: "Stack summary",
+        placeholder: "Next.js, TypeScript, Tailwind CSS, Vitest",
+    });
+    if (isCancel(stackSummary)) {
+        process.exit(130);
+    }
+    return {
+        projectName,
+        projectDescription,
+        issueTracker,
+        designSystemPath,
+        briefsPath,
+        testCommand,
+        lintCommand,
+        buildCommand,
+        stackSummary,
+    };
+}
+async function buildInitTemplateContent(file, preset, personalization) {
+    const content = await buildTemplateContent(file, preset);
+    return personalizeTemplateContent(file, content, personalization);
+}
 async function installTemplates(targetArg, options) {
     const targetDir = path.resolve(process.cwd(), targetArg || ".");
     const files = options.files ?? (await getTemplateFiles());
@@ -201,7 +382,6 @@ async function installTemplates(targetArg, options) {
         await mkdir(targetDir, { recursive: true });
     }
     for (const file of files) {
-        const source = path.join(templatesDir, file);
         const destination = path.join(targetDir, file);
         const destinationExists = await exists(destination);
         if (destinationExists && !options.force) {
@@ -212,11 +392,11 @@ async function installTemplates(targetArg, options) {
         if (!options.dryRun) {
             await mkdir(path.dirname(destination), { recursive: true });
             if (preset && file === "AGENTS.md") {
-                const content = await readFile(source, "utf8");
-                await writeFile(destination, wrapManagedBlock(file, addStackReference(file, content, preset)));
+                const content = await buildInitTemplateContent(file, preset, options.personalization);
+                await writeFile(destination, wrapManagedBlock(file, content));
             }
             else {
-                const content = await readFile(source, "utf8");
+                const content = await buildInitTemplateContent(file, preset, options.personalization);
                 await writeFile(destination, wrapManagedBlock(file, content));
             }
         }
@@ -439,6 +619,7 @@ async function resolveInteractiveTarget(target, options) {
             options.force = conflictResponse === "overwrite";
         }
     }
+    options.personalization = await promptForPersonalization();
     return resolvedTarget || ".";
 }
 async function main() {
