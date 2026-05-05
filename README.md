@@ -118,6 +118,35 @@ npm test
 
 The npm package is `thomas-agentkit`. The installed CLI command is `agentkit`, backed by the compiled TypeScript entrypoint at `dist/cli.js`.
 
+## Release
+
+Before publishing a new package version:
+
+1. Update the version in `package.json` intentionally.
+2. Run the full test suite:
+
+   ```bash
+   npm test
+   ```
+
+3. Run the package build step:
+
+   ```bash
+   npm run prepack
+   ```
+
+4. Inspect the publish contents:
+
+   ```bash
+   npm pack --dry-run
+   ```
+
+5. Publish to npm:
+
+   ```bash
+   npm publish
+   ```
+
 ## Philosophy
 
 AgentKit should stay:
