@@ -14,16 +14,26 @@ Install templates into the current directory:
 npx thomas-agentkit init
 ```
 
+By default, `init` opens a short interactive setup flow in terminals. After choosing install options, you can optionally personalize repository-level template placeholders such as project name, description, issue tracker, docs paths, stack summary, and project commands.
+
 Install into another directory:
 
 ```bash
 npx thomas-agentkit init ./my-project
 ```
 
+Accept defaults without prompts:
+
+```bash
+npx thomas-agentkit init --yes
+```
+
+`--yes` keeps installed templates generic and leaves placeholders for later editing.
+
 Preview changes without writing files:
 
 ```bash
-npx thomas-agentkit init --dry-run
+npx thomas-agentkit init --yes --dry-run
 ```
 
 Overwrite existing files:
@@ -44,7 +54,7 @@ Preview updates without writing files:
 npx thomas-agentkit update --dry-run
 ```
 
-Use the optional interactive flow:
+Explicitly request the interactive flow:
 
 ```bash
 npx thomas-agentkit init --interactive
@@ -97,6 +107,8 @@ Generated content
 
 `agentkit update` only replaces content inside matching managed blocks. User edits before or after those blocks are preserved. Existing legacy files without managed blocks are reported as unmanaged and left untouched.
 
+Interactive personalization only applies during `agentkit init` when files are created or overwritten. It does not write a config file, and `agentkit update` does not reapply personalized values.
+
 ## Presets
 
 Presets add stack-specific guidance without scaffolding framework app files.
@@ -122,8 +134,8 @@ Options:
 
 - `--force`: overwrite existing files
 - `--dry-run`: print planned changes without writing files
-- `-i, --interactive`: prompt for install options
-- `-y, --yes`: accept defaults for non-interactive runs
+- `-i, --interactive`: explicitly prompt for install options
+- `-y, --yes`: accept defaults without prompts
 - `--preset <name>`: install stack-specific guidance (`next`, `sveltekit`, `express`, `convex`, `fullstack`)
 - `--list`: list bundled template files
 - `--list-presets`: list available presets
@@ -136,7 +148,7 @@ For `agentkit update`, `--preset <name>` refreshes preset-specific managed conte
 
 ```bash
 npm install
-npm run dev -- init ./tmp-demo --dry-run
+npm run dev -- init ./tmp-demo --yes --dry-run
 npm run build
 npm test
 ```

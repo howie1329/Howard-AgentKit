@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { confirm, isCancel, select, text } from "@clack/prompts";
+import { confirm, intro, isCancel, multiselect, select, text } from "@clack/prompts";
 import { Command } from "commander";
 import { constants as fsConstants } from "node:fs";
 import { access, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
@@ -8,6 +8,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 type PresetName = "next" | "sveltekit" | "express" | "convex" | "fullstack";
+type ProjectTypeName = PresetName | "generic";
+type AiToolName = "codex" | "cursor" | "claude" | "copilot";
+type TemplateSetName = "minimal" | "standard" | "full";
+
+export type PersonalizationValues = {
+  projectName?: string;
+  projectDescription?: string;
+  issueTracker?: string;
+  designSystemPath?: string;
+  briefsPath?: string;
+  testCommand?: string;
+  lintCommand?: string;
+  buildCommand?: string;
+  stackSummary?: string;
+};
 
 type InitOptions = {
   force?: boolean;
@@ -15,6 +30,8 @@ type InitOptions = {
   yes?: boolean;
   interactive?: boolean;
   preset?: string;
+  files?: string[];
+  personalization?: PersonalizationValues;
 };
 
 type InstallResult = {
@@ -43,6 +60,8 @@ const packageRoot = path.resolve(__dirname, "..");
 const templatesDir = path.join(packageRoot, "templates");
 const packageJsonPath = path.join(packageRoot, "package.json");
 const validPresets: PresetName[] = ["next", "sveltekit", "express", "convex", "fullstack"];
+const validProjectTypes: ProjectTypeName[] = ["generic", ...validPresets];
+const validAiTools: AiToolName[] = ["codex", "cursor", "claude", "copilot"];
 
 const presetLabels: Record<PresetName, string> = {
   next: "Next.js",
@@ -50,6 +69,19 @@ const presetLabels: Record<PresetName, string> = {
   express: "Express",
   convex: "Convex",
   fullstack: "Fullstack",
+};
+
+const aiToolFiles: Record<AiToolName, string[]> = {
+  codex: ["AGENTS.md"],
+  cursor: [".cursor/rules/agentkit.md"],
+  claude: ["CLAUDE.md"],
+  copilot: [".github/copilot-instructions.md"],
+};
+
+const templateSetFiles: Record<TemplateSetName, string[]> = {
+  minimal: ["AGENTS.md"],
+  standard: ["AGENTS.md", "CODE-QUALITY.md", "DESIGN-SYSTEM.md", "WORKFLOWS.md"],
+  full: [],
 };
 
 const stackGuidance: Record<Exclude<PresetName, "fullstack">, string> = {
@@ -151,6 +183,14 @@ function isPresetName(value: string): value is PresetName {
   return validPresets.includes(value as PresetName);
 }
 
+function isProjectTypeName(value: string): value is ProjectTypeName {
+  return validProjectTypes.includes(value as ProjectTypeName);
+}
+
+function isAiToolName(value: string): value is AiToolName {
+  return validAiTools.includes(value as AiToolName);
+}
+
 function formatPresetList(): string {
   return validPresets.join(", ");
 }
@@ -167,6 +207,53 @@ function resolvePreset(preset: string | undefined): PresetName | undefined {
   }
 
   return normalizedPreset;
+}
+
+export function resolveProjectPreset(projectType: string | undefined): PresetName | undefined {
+  if (!projectType) {
+    return undefined;
+  }
+
+  const normalizedProjectType = projectType.toLowerCase();
+
+  if (!isProjectTypeName(normalizedProjectType)) {
+    throw new Error(`Unknown project type "${projectType}". Valid project types: ${validProjectTypes.join(", ")}.`);
+  }
+
+  return normalizedProjectType === "generic" ? undefined : normalizedProjectType;
+}
+
+export function getFilesForAiTools(aiTools: string[]): string[] {
+  const files = new Set<string>();
+
+  for (const aiTool of aiTools) {
+    if (!isAiToolName(aiTool)) {
+      throw new Error(`Unknown AI tool "${aiTool}". Valid AI tools: ${validAiTools.join(", ")}.`);
+    }
+
+    for (const file of aiToolFiles[aiTool]) {
+      files.add(file);
+    }
+  }
+
+  return [...files].sort();
+}
+
+export function getFilesForTemplateSet(templateSet: TemplateSetName, allTemplateFiles: string[]): string[] {
+  if (templateSet === "full") {
+    return [...allTemplateFiles].sort();
+  }
+
+  return templateSetFiles[templateSet].filter((file) => allTemplateFiles.includes(file)).sort();
+}
+
+export function getSelectedTemplateFiles(
+  templateSet: TemplateSetName,
+  aiTools: string[],
+  allTemplateFiles: string[],
+): string[] {
+  const files = new Set([...getFilesForTemplateSet(templateSet, allTemplateFiles), ...getFilesForAiTools(aiTools)]);
+  return [...files].filter((file) => allTemplateFiles.includes(file)).sort();
 }
 
 function getStackGuidance(preset: PresetName): string {
@@ -202,12 +289,265 @@ function addStackReference(file: string, content: string, preset: PresetName | u
   return `${content.trimEnd()}\n${stackNote}`;
 }
 
+function cleanPersonalizationValue(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function replaceIfProvided(content: string, placeholder: string, value: string | undefined): string {
+  const replacement = cleanPersonalizationValue(value);
+  return replacement ? content.replaceAll(placeholder, replacement) : content;
+}
+
+function getProvidedCommands(values: PersonalizationValues): string[] {
+  return [values.testCommand, values.lintCommand, values.buildCommand]
+    .map(cleanPersonalizationValue)
+    .filter((command): command is string => Boolean(command));
+}
+
+function commandDescription(command: string, kind: "test" | "lint" | "build"): string {
+  const descriptions = {
+    test: "Run tests",
+    lint: "Run lint checks",
+    build: "Build or check the project",
+  };
+
+  return descriptions[kind] ?? command;
+}
+
+function replaceCommandBlock(content: string, commands: string[]): string {
+  if (commands.length === 0) {
+    return content;
+  }
+
+  const commandBlock = ["```bash", ...commands, "```"].join("\n");
+  return content
+    .replace(/```bash\nnpm install\nnpm test\nnpm run build\nnpm run lint\n```/, commandBlock)
+    .replace(/```bash\nnpm test\nnpm run lint\nnpm run build\n```/, commandBlock);
+}
+
+function replaceAgentCommandTable(content: string, values: PersonalizationValues): string {
+  const rows = [
+    cleanPersonalizationValue(values.testCommand)
+      ? `| \`${cleanPersonalizationValue(values.testCommand)}\` | ${commandDescription(values.testCommand ?? "", "test")} |`
+      : undefined,
+    cleanPersonalizationValue(values.lintCommand)
+      ? `| \`${cleanPersonalizationValue(values.lintCommand)}\` | ${commandDescription(values.lintCommand ?? "", "lint")} |`
+      : undefined,
+    cleanPersonalizationValue(values.buildCommand)
+      ? `| \`${cleanPersonalizationValue(values.buildCommand)}\` | ${commandDescription(values.buildCommand ?? "", "build")} |`
+      : undefined,
+  ].filter((row): row is string => Boolean(row));
+
+  if (rows.length === 0) {
+    return content;
+  }
+
+  const nextTable = ["| Command | Description |", "| --- | --- |", ...rows].join("\n");
+  return content.replace(
+    /\| Command \| Description \|\n\| --- \| --- \|\n\| `npm run dev` \| Start the local development server \|\n\| `npm test` \| Run tests \|\n\| `npm run lint` \| Run lint checks \|\n\| `npm run build` \| Build the project \|/,
+    nextTable,
+  );
+}
+
+function replaceStackSummary(content: string, stackSummary: string | undefined): string {
+  const summary = cleanPersonalizationValue(stackSummary);
+
+  if (!summary) {
+    return content;
+  }
+
+  const stackItems = summary
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => `- ${item}`)
+    .join("\n");
+
+  return content.replace(
+    /- \[Primary framework\]\n- \[Language\/runtime\]\n- \[Backend\/data layer\]\n- \[Styling system\]\n- \[Test tools\]\n- \[Lint\/format tools\]/,
+    stackItems,
+  );
+}
+
+export function personalizeTemplateContent(
+  file: string,
+  content: string,
+  values: PersonalizationValues | undefined,
+): string {
+  if (!values) {
+    return content;
+  }
+
+  if (
+    file === "PRD-TEMPLATE.md" ||
+    file === "IMPLEMENTATION-BRIEF-TEMPLATE.md" ||
+    file === ".github/pull_request_template.md"
+  ) {
+    return content;
+  }
+
+  let personalized = content;
+
+  if (file === "AGENTS.md" || file === "DESIGN-SYSTEM.md") {
+    personalized = replaceIfProvided(personalized, "[Project Name]", values.projectName);
+  }
+
+  if (file === "AGENTS.md") {
+    personalized = replaceIfProvided(personalized, "[short project description]", values.projectDescription);
+    personalized = replaceIfProvided(
+      personalized,
+      "[issue tracker, e.g. Linear or GitHub Issues]",
+      values.issueTracker,
+    );
+    personalized = replaceIfProvided(
+      personalized,
+      "[design system path, e.g. docs/design-system.md]",
+      values.designSystemPath,
+    );
+    personalized = replaceIfProvided(personalized, "[design system path]", values.designSystemPath);
+    personalized = replaceIfProvided(personalized, "[briefs path, e.g. docs/briefs]", values.briefsPath);
+    personalized = replaceIfProvided(personalized, "[test command, e.g. npm test]", values.testCommand);
+    personalized = replaceIfProvided(personalized, "[lint command, e.g. npm run lint]", values.lintCommand);
+    personalized = replaceIfProvided(
+      personalized,
+      "[build/check command, e.g. npm run build]",
+      values.buildCommand,
+    );
+    personalized = replaceAgentCommandTable(personalized, values);
+    personalized = replaceStackSummary(personalized, values.stackSummary);
+  }
+
+  if (file === "CLAUDE.md" || file === "CODE-QUALITY.md") {
+    personalized = replaceCommandBlock(personalized, getProvidedCommands(values));
+  }
+
+  return personalized;
+}
+
+async function promptForPersonalization(): Promise<PersonalizationValues | undefined> {
+  const shouldPersonalize = await confirm({
+    message: "Personalize template placeholders?",
+    initialValue: false,
+  });
+
+  if (isCancel(shouldPersonalize)) {
+    process.exit(130);
+  }
+
+  if (!shouldPersonalize) {
+    return undefined;
+  }
+
+  const projectName = await text({
+    message: "Project name",
+    placeholder: "[Project Name]",
+  });
+
+  if (isCancel(projectName)) {
+    process.exit(130);
+  }
+
+  const projectDescription = await text({
+    message: "Short project description",
+    placeholder: "[short project description]",
+  });
+
+  if (isCancel(projectDescription)) {
+    process.exit(130);
+  }
+
+  const issueTracker = await text({
+    message: "Issue tracker name",
+    placeholder: "Linear or GitHub Issues",
+  });
+
+  if (isCancel(issueTracker)) {
+    process.exit(130);
+  }
+
+  const designSystemPath = await text({
+    message: "Design system path",
+    placeholder: "docs/design-system.md",
+  });
+
+  if (isCancel(designSystemPath)) {
+    process.exit(130);
+  }
+
+  const briefsPath = await text({
+    message: "Briefs path",
+    placeholder: "docs/briefs",
+  });
+
+  if (isCancel(briefsPath)) {
+    process.exit(130);
+  }
+
+  const testCommand = await text({
+    message: "Test command",
+    placeholder: "npm test",
+  });
+
+  if (isCancel(testCommand)) {
+    process.exit(130);
+  }
+
+  const lintCommand = await text({
+    message: "Lint command",
+    placeholder: "npm run lint",
+  });
+
+  if (isCancel(lintCommand)) {
+    process.exit(130);
+  }
+
+  const buildCommand = await text({
+    message: "Build/check command",
+    placeholder: "npm run build",
+  });
+
+  if (isCancel(buildCommand)) {
+    process.exit(130);
+  }
+
+  const stackSummary = await text({
+    message: "Stack summary",
+    placeholder: "Next.js, TypeScript, Tailwind CSS, Vitest",
+  });
+
+  if (isCancel(stackSummary)) {
+    process.exit(130);
+  }
+
+  return {
+    projectName,
+    projectDescription,
+    issueTracker,
+    designSystemPath,
+    briefsPath,
+    testCommand,
+    lintCommand,
+    buildCommand,
+    stackSummary,
+  };
+}
+
+async function buildInitTemplateContent(
+  file: string,
+  preset: PresetName | undefined,
+  personalization: PersonalizationValues | undefined,
+): Promise<string> {
+  const content = await buildTemplateContent(file, preset);
+  return personalizeTemplateContent(file, content, personalization);
+}
+
 async function installTemplates(
   targetArg: string | undefined,
   options: InitOptions,
 ): Promise<InstallResult> {
   const targetDir = path.resolve(process.cwd(), targetArg || ".");
-  const files = await getTemplateFiles();
+  const files = options.files ?? (await getTemplateFiles());
   const preset = resolvePreset(options.preset);
   const created: string[] = [];
   const skipped: string[] = [];
@@ -217,7 +557,6 @@ async function installTemplates(
   }
 
   for (const file of files) {
-    const source = path.join(templatesDir, file);
     const destination = path.join(targetDir, file);
     const destinationExists = await exists(destination);
 
@@ -231,10 +570,10 @@ async function installTemplates(
     if (!options.dryRun) {
       await mkdir(path.dirname(destination), { recursive: true });
       if (preset && file === "AGENTS.md") {
-        const content = await readFile(source, "utf8");
-        await writeFile(destination, wrapManagedBlock(file, addStackReference(file, content, preset)));
+        const content = await buildInitTemplateContent(file, preset, options.personalization);
+        await writeFile(destination, wrapManagedBlock(file, content));
       } else {
-        const content = await readFile(source, "utf8");
+        const content = await buildInitTemplateContent(file, preset, options.personalization);
         await writeFile(destination, wrapManagedBlock(file, content));
       }
     }
@@ -412,50 +751,116 @@ async function resolveInteractiveTarget(
   options: InitOptions,
 ): Promise<string | undefined> {
   const providedPreset = resolvePreset(options.preset);
+  const shouldPrompt = !options.yes && (options.interactive || process.stdin.isTTY);
 
-  if (!options.interactive) {
+  if (!shouldPrompt) {
     return target;
   }
 
-  const targetResponse = await text({
-    message: "Where should AgentKit install templates?",
-    placeholder: target || ".",
-    defaultValue: target || ".",
-  });
+  intro("Welcome to AgentKit");
 
-  if (isCancel(targetResponse)) {
-    process.exit(130);
+  let resolvedTarget = target;
+
+  if (!target || target === ".") {
+    const targetResponse = await text({
+      message: "Where should AgentKit install files?",
+      placeholder: ".",
+      defaultValue: ".",
+    });
+
+    if (isCancel(targetResponse)) {
+      process.exit(130);
+    }
+
+    resolvedTarget = targetResponse || ".";
   }
 
-  const forceResponse = await confirm({
-    message: "Overwrite existing files?",
-    initialValue: Boolean(options.force),
-  });
+  if (!providedPreset) {
+    const projectTypeResponse = await select<ProjectTypeName>({
+      message: "What type of project is this?",
+      initialValue: "generic",
+      options: [
+        { label: "Generic TypeScript project", value: "generic" },
+        { label: "Next.js app", value: "next" },
+        { label: "SvelteKit app", value: "sveltekit" },
+        { label: "Express API", value: "express" },
+        { label: "Convex app", value: "convex" },
+        { label: "Fullstack app", value: "fullstack" },
+      ],
+    });
 
-  if (isCancel(forceResponse)) {
-    process.exit(130);
+    if (isCancel(projectTypeResponse)) {
+      process.exit(130);
+    }
+
+    options.preset = resolveProjectPreset(projectTypeResponse);
   }
 
-  const presetResponse = await select({
-    message: "Which preset should AgentKit use?",
-    initialValue: providedPreset || "generic",
+  const aiToolResponse = await multiselect<AiToolName>({
+    message: "Which AI tools do you use?",
+    initialValues: ["codex", "cursor", "claude"],
     options: [
-      { label: "Generic", value: "generic" },
-      { label: "Next.js", value: "next" },
-      { label: "SvelteKit", value: "sveltekit" },
-      { label: "Express", value: "express" },
-      { label: "Convex", value: "convex" },
-      { label: "Fullstack", value: "fullstack" },
+      { label: "Codex", value: "codex" },
+      { label: "Cursor", value: "cursor" },
+      { label: "Claude Code", value: "claude" },
+      { label: "GitHub Copilot", value: "copilot" },
     ],
   });
 
-  if (isCancel(presetResponse)) {
+  if (isCancel(aiToolResponse)) {
     process.exit(130);
   }
 
-  options.preset = presetResponse === "generic" ? undefined : presetResponse;
-  options.force = forceResponse;
-  return targetResponse || ".";
+  const templateSetResponse = await select<TemplateSetName>({
+    message: "Which template set do you want?",
+    initialValue: "standard",
+    options: [
+      { label: "Minimal", value: "minimal" },
+      { label: "Standard", value: "standard" },
+      { label: "Full", value: "full" },
+    ],
+  });
+
+  if (isCancel(templateSetResponse)) {
+    process.exit(130);
+  }
+
+  const templateFiles = await getTemplateFiles();
+  options.files = getSelectedTemplateFiles(templateSetResponse, aiToolResponse, templateFiles);
+
+  if (!options.force) {
+    const preset = resolvePreset(options.preset);
+    const installFiles = preset ? [...options.files, "STACK.md"] : options.files;
+    const targetDir = path.resolve(process.cwd(), resolvedTarget || ".");
+    const existingFiles: string[] = [];
+
+    for (const file of installFiles) {
+      if (await exists(path.join(targetDir, file))) {
+        existingFiles.push(file);
+      }
+    }
+
+    if (existingFiles.length > 0) {
+      const conflictResponse = await select({
+        message: `Existing files found: ${existingFiles.join(", ")}. How should AgentKit handle conflicts?`,
+        initialValue: "skip",
+        options: [
+          { label: "Skip existing files", value: "skip" },
+          { label: "Overwrite existing files", value: "overwrite" },
+        ],
+      });
+
+      if (isCancel(conflictResponse)) {
+        process.exit(130);
+      }
+
+      options.force = conflictResponse === "overwrite";
+    }
+  }
+
+  options.personalization = await promptForPersonalization();
+
+  return resolvedTarget || ".";
 }
 
 async function main(): Promise<void> {
@@ -490,7 +895,7 @@ Examples:
   agentkit init
   agentkit update
   agentkit init --preset next
-  agentkit init ./my-project --dry-run
+  agentkit init ./my-project --yes --dry-run
   agentkit --list-presets
   agentkit --list`,
     );
@@ -524,8 +929,10 @@ Examples:
   await program.parseAsync(process.argv);
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    process.exitCode = 1;
+  });
+}

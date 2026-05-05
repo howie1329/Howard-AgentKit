@@ -3,6 +3,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, test } from "vitest";
+import {
+  getFilesForAiTools,
+  getFilesForTemplateSet,
+  getSelectedTemplateFiles,
+  personalizeTemplateContent,
+  resolveProjectPreset,
+} from "../src/cli.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 const cli = path.join(root, "dist", "cli.js");
@@ -96,9 +103,129 @@ describe("agentkit CLI", () => {
     }
   });
 
+  test("maps project types to presets", () => {
+    expect(resolveProjectPreset("generic")).toBeUndefined();
+    expect(resolveProjectPreset("next")).toBe("next");
+    expect(resolveProjectPreset("sveltekit")).toBe("sveltekit");
+    expect(resolveProjectPreset("express")).toBe("express");
+    expect(resolveProjectPreset("convex")).toBe("convex");
+    expect(resolveProjectPreset("fullstack")).toBe("fullstack");
+  });
+
+  test("maps AI tool selections to tool-specific files", () => {
+    expect(getFilesForAiTools(["codex", "cursor", "claude", "copilot"])).toEqual([
+      ".cursor/rules/agentkit.md",
+      ".github/copilot-instructions.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+    ]);
+  });
+
+  test("maps template sets to bundled files", () => {
+    expect(getFilesForTemplateSet("minimal", expectedTemplates)).toEqual(["AGENTS.md"]);
+    expect(getFilesForTemplateSet("standard", expectedTemplates)).toEqual([
+      "AGENTS.md",
+      "CODE-QUALITY.md",
+      "DESIGN-SYSTEM.md",
+      "WORKFLOWS.md",
+    ]);
+    expect(getFilesForTemplateSet("full", expectedTemplates)).toEqual(expectedTemplates);
+  });
+
+  test("combines template set and AI tool files", () => {
+    expect(getSelectedTemplateFiles("minimal", ["cursor", "claude"], expectedTemplates)).toEqual([
+      ".cursor/rules/agentkit.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+    ]);
+  });
+
+  test("personalizes repository-level AGENTS.md placeholders", () => {
+    const content = fs.readFileSync(path.join(templatesDir, "AGENTS.md"), "utf8");
+    const personalized = personalizeTemplateContent("AGENTS.md", content, {
+      projectName: "Acme CRM",
+      projectDescription: "a customer operations dashboard",
+      issueTracker: "Linear",
+      designSystemPath: "docs/ui.md",
+      briefsPath: "docs/briefs",
+      testCommand: "pnpm test",
+      lintCommand: "pnpm lint",
+      buildCommand: "pnpm build",
+      stackSummary: "Next.js, TypeScript, PostgreSQL",
+    });
+
+    expect(personalized).toMatch(/# Acme CRM Agent Guide/);
+    expect(personalized).toMatch(/Acme CRM is a customer operations dashboard/);
+    expect(personalized).toMatch(/linked to an issue in Linear/);
+    expect(personalized).toMatch(/read `docs\/ui\.md`/);
+    expect(personalized).toMatch(/in `docs\/briefs`/);
+    expect(personalized).toMatch(/`pnpm test`/);
+    expect(personalized).toMatch(/`pnpm lint`/);
+    expect(personalized).toMatch(/`pnpm build`/);
+    expect(personalized).toMatch(/- Next\.js\n- TypeScript\n- PostgreSQL/);
+  });
+
+  test("personalization leaves blank values as placeholders", () => {
+    const content = fs.readFileSync(path.join(templatesDir, "AGENTS.md"), "utf8");
+    const personalized = personalizeTemplateContent("AGENTS.md", content, {
+      projectName: "Acme CRM",
+      projectDescription: "",
+      testCommand: "   ",
+    });
+
+    expect(personalized).toMatch(/# Acme CRM Agent Guide/);
+    expect(personalized).toMatch(/\[short project description\]/);
+    expect(personalized).toMatch(/\[test command, e\.g\. npm test\]/);
+  });
+
+  test("personalizes design system project name only", () => {
+    const content = fs.readFileSync(path.join(templatesDir, "DESIGN-SYSTEM.md"), "utf8");
+    const personalized = personalizeTemplateContent("DESIGN-SYSTEM.md", content, {
+      projectName: "Acme CRM",
+      designSystemPath: "docs/ui.md",
+    });
+
+    expect(personalized).toMatch(/# Acme CRM Design System/);
+    expect(personalized).toMatch(/principles for Acme CRM/);
+    expect(personalized).toMatch(/\[theme stylesheet path, e\.g\. src\/styles\.css\]/);
+  });
+
+  test("personalizes command blocks in Claude and code quality docs", () => {
+    const values = {
+      testCommand: "pnpm test",
+      lintCommand: "pnpm lint",
+      buildCommand: "pnpm build",
+    };
+    const claude = personalizeTemplateContent(
+      "CLAUDE.md",
+      fs.readFileSync(path.join(templatesDir, "CLAUDE.md"), "utf8"),
+      values,
+    );
+    const quality = personalizeTemplateContent(
+      "CODE-QUALITY.md",
+      fs.readFileSync(path.join(templatesDir, "CODE-QUALITY.md"), "utf8"),
+      values,
+    );
+
+    expect(claude).toMatch(/```bash\npnpm test\npnpm lint\npnpm build\n```/);
+    expect(quality).toMatch(/```bash\npnpm test\npnpm lint\npnpm build\n```/);
+  });
+
+  test("does not personalize per-work-item templates", () => {
+    const values = {
+      projectName: "Acme CRM",
+      projectDescription: "a customer operations dashboard",
+    };
+
+    for (const file of ["PRD-TEMPLATE.md", "IMPLEMENTATION-BRIEF-TEMPLATE.md", ".github/pull_request_template.md"]) {
+      const content = fs.readFileSync(path.join(templatesDir, file), "utf8");
+      expect(personalizeTemplateContent(file, content, values)).toBe(content);
+    }
+  });
+
   test("init creates expected files recursively", () => {
     const target = tempDir();
-    const result = run(["init", target]);
+    const result = run(["init", target, "--yes"]);
 
     expect(result.status).toBe(0);
     for (const file of expectedTemplates) {
@@ -107,12 +234,13 @@ describe("agentkit CLI", () => {
     expect(fs.readFileSync(path.join(target, "AGENTS.md"), "utf8")).toMatch(
       /<!-- agentkit:start agents -->/,
     );
+    expect(fs.readFileSync(path.join(target, "AGENTS.md"), "utf8")).toMatch(/\[Project Name\]/);
     expect(fs.existsSync(path.join(target, "STACK.md"))).toBe(false);
   });
 
   test("init --preset next creates stack guidance and references it from AGENTS.md", () => {
     const target = tempDir();
-    const result = run(["init", target, "--preset", "next"]);
+    const result = run(["init", target, "--yes", "--preset", "next"]);
 
     expect(result.status).toBe(0);
     for (const file of expectedTemplates) {
@@ -130,7 +258,7 @@ describe("agentkit CLI", () => {
 
   test("init --preset fullstack includes Next.js and Convex guidance", () => {
     const target = tempDir();
-    const result = run(["init", target, "--preset", "fullstack"]);
+    const result = run(["init", target, "--yes", "--preset", "fullstack"]);
 
     expect(result.status).toBe(0);
 
@@ -142,7 +270,7 @@ describe("agentkit CLI", () => {
 
   test("init defaults to current working directory", () => {
     const target = tempDir();
-    const result = run(["init"], { cwd: target });
+    const result = run(["init", "--yes"], { cwd: target });
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(target, "AGENTS.md"))).toBe(true);
@@ -153,7 +281,7 @@ describe("agentkit CLI", () => {
     const agentsPath = path.join(target, "AGENTS.md");
     fs.writeFileSync(agentsPath, "custom content\n");
 
-    const result = run(["init", target]);
+    const result = run(["init", target, "--yes"]);
 
     expect(result.status).toBe(0);
     expect(fs.readFileSync(agentsPath, "utf8")).toBe("custom content\n");
@@ -165,7 +293,7 @@ describe("agentkit CLI", () => {
     const agentsPath = path.join(target, "AGENTS.md");
     fs.writeFileSync(agentsPath, "custom content\n");
 
-    const result = run(["init", target, "--force"]);
+    const result = run(["init", target, "--yes", "--force"]);
 
     expect(result.status).toBe(0);
     expect(fs.readFileSync(agentsPath, "utf8")).not.toBe("custom content\n");
@@ -174,7 +302,7 @@ describe("agentkit CLI", () => {
 
   test("init --dry-run writes nothing", () => {
     const target = path.join(tempDir(), "nested-target");
-    const result = run(["init", target, "--dry-run"]);
+    const result = run(["init", target, "--yes", "--dry-run"]);
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(target)).toBe(false);
@@ -183,7 +311,7 @@ describe("agentkit CLI", () => {
 
   test("init --dry-run --preset next writes nothing but reports STACK.md", () => {
     const target = path.join(tempDir(), "nested-target");
-    const result = run(["init", target, "--dry-run", "--preset", "next"]);
+    const result = run(["init", target, "--yes", "--dry-run", "--preset", "next"]);
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(target)).toBe(false);
@@ -191,7 +319,7 @@ describe("agentkit CLI", () => {
   });
 
   test("invalid preset exits non-zero and lists valid presets", () => {
-    const result = run(["init", tempDir(), "--preset", "rails"]);
+    const result = run(["init", tempDir(), "--yes", "--preset", "rails"]);
 
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/Unknown preset "rails"/);
