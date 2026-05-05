@@ -365,6 +365,92 @@ describe("agentkit CLI", () => {
     expect(stack).not.toMatch(/Convex/);
   });
 
+  test("init --write-config creates default config", () => {
+    const target = tempDir();
+    const result = run(["init", target, "--yes", "--write-config"]);
+    const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as unknown;
+
+    expect(result.status).toBe(0);
+    expect(config).toEqual({
+      templateSet: "full",
+      aiTools: [],
+    });
+    expect(result.stdout).toMatch(/Created: .*agentkit\.config\.json/);
+  });
+
+  test("init --write-config writes preset and installs stack guidance", () => {
+    const target = tempDir();
+    const result = run(["init", target, "--yes", "--write-config", "--preset", "next"]);
+    const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as unknown;
+
+    expect(result.status).toBe(0);
+    expect(config).toEqual({
+      templateSet: "full",
+      aiTools: [],
+      preset: "next",
+    });
+    expect(fs.readFileSync(path.join(target, "STACK.md"), "utf8")).toMatch(/Next\.js/);
+  });
+
+  test("init --write-config writes resolved config defaults", () => {
+    const target = tempDir();
+    writeConfig(target, {
+      preset: "express",
+      templateSet: "minimal",
+      aiTools: ["claude"],
+      personalization: {
+        projectName: "Config App",
+        projectDescription: "",
+      },
+    });
+
+    const result = run(["init", target, "--yes", "--write-config", "--force"]);
+    const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as unknown;
+
+    expect(result.status).toBe(0);
+    expect(config).toEqual({
+      templateSet: "minimal",
+      aiTools: ["claude"],
+      preset: "express",
+      personalization: {
+        projectName: "Config App",
+      },
+    });
+  });
+
+  test("init --write-config skips existing config by default", () => {
+    const target = tempDir();
+    writeConfig(target, {
+      preset: "convex",
+    });
+
+    const result = run(["init", target, "--yes", "--write-config", "--preset", "next"]);
+    const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as unknown;
+
+    expect(result.status).toBe(0);
+    expect(config).toEqual({
+      preset: "convex",
+    });
+    expect(result.stdout).toMatch(/Skipped existing: .*agentkit\.config\.json/);
+  });
+
+  test("init --write-config --force overwrites existing config", () => {
+    const target = tempDir();
+    writeConfig(target, {
+      preset: "convex",
+    });
+
+    const result = run(["init", target, "--yes", "--write-config", "--force", "--preset", "next"]);
+    const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as unknown;
+
+    expect(result.status).toBe(0);
+    expect(config).toEqual({
+      templateSet: "full",
+      aiTools: [],
+      preset: "next",
+    });
+  });
+
   test("init skips existing files by default", () => {
     const target = tempDir();
     const agentsPath = path.join(target, "AGENTS.md");
@@ -421,6 +507,15 @@ describe("agentkit CLI", () => {
     expect(fs.existsSync(target)).toBe(false);
     expect(result.stdout).toMatch(/Would create: .*AGENTS\.md/);
     expect(result.stdout).toMatch(/Would create: .*STACK\.md/);
+  });
+
+  test("init --dry-run --write-config writes nothing but reports config", () => {
+    const target = path.join(tempDir(), "nested-target");
+    const result = run(["init", target, "--yes", "--dry-run", "--write-config"]);
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(target)).toBe(false);
+    expect(result.stdout).toMatch(/Would create: .*agentkit\.config\.json/);
   });
 
   test("invalid preset exits non-zero and lists valid presets", () => {
@@ -641,5 +736,24 @@ describe("agentkit CLI", () => {
     expect(agents).toMatch(/Preset: Next\.js/);
     expect(agents).toMatch(/# \[Project Name\] Agent Guide/);
     expect(agents).not.toMatch(/Ignored Update Name/);
+  });
+
+  test("update does not create or modify config", () => {
+    const target = tempDir();
+    const configPath = path.join(target, "agentkit.config.json");
+
+    const result = run(["update", target]);
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(configPath)).toBe(false);
+
+    writeConfig(target, {
+      preset: "next",
+    });
+    const existingConfig = fs.readFileSync(configPath, "utf8");
+    const updateExisting = run(["update", target]);
+
+    expect(updateExisting.status).toBe(0);
+    expect(fs.readFileSync(configPath, "utf8")).toBe(existingConfig);
   });
 });

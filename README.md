@@ -89,6 +89,14 @@ Standardize install defaults with `agentkit.config.json`:
 
 AgentKit reads `agentkit.config.json` from the target directory first. When installing into another target that does not have a config file, it falls back to the current working directory. Config values are defaults: explicit CLI flags override them.
 
+Create a config file from resolved install choices:
+
+```bash
+npx thomas-agentkit init --write-config
+```
+
+`--write-config` writes `agentkit.config.json` in the target directory. Existing config files are skipped by default; use `--force` to overwrite one intentionally.
+
 List bundled templates:
 
 ```bash
@@ -147,7 +155,7 @@ Presets add stack-specific guidance without scaffolding framework app files.
 ## CLI Reference
 
 ```text
-agentkit init [target] [--force] [--dry-run] [--interactive] [--yes] [--preset <name>]
+agentkit init [target] [--force] [--dry-run] [--interactive] [--yes] [--write-config] [--preset <name>]
 agentkit update [target] [--dry-run] [--preset <name>]
 agentkit --list
 agentkit --list-presets
@@ -161,6 +169,7 @@ Options:
 - `--dry-run`: print planned changes without writing files
 - `-i, --interactive`: explicitly prompt for install options
 - `-y, --yes`: accept defaults without prompts
+- `--write-config`: write resolved install defaults to `agentkit.config.json`
 - `--preset <name>`: install stack-specific guidance (`next`, `sveltekit`, `express`, `convex`, `fullstack`)
 - `--list`: list bundled template files
 - `--list-presets`: list available presets

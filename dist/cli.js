@@ -324,6 +324,32 @@ function cleanPersonalizationValue(value) {
     const trimmed = value?.trim();
     return trimmed ? trimmed : undefined;
 }
+function getResolvedConfig(options) {
+    const config = {
+        templateSet: options.templateSet ?? "full",
+        aiTools: options.aiTools ?? [],
+    };
+    const preset = resolvePreset(options.preset);
+    if (preset) {
+        config.preset = preset;
+    }
+    if (options.personalization) {
+        const personalization = {};
+        for (const key of personalizationKeys) {
+            const value = cleanPersonalizationValue(options.personalization[key]);
+            if (value) {
+                personalization[key] = value;
+            }
+        }
+        if (Object.keys(personalization).length > 0) {
+            config.personalization = personalization;
+        }
+    }
+    return config;
+}
+function serializeConfig(config) {
+    return `${JSON.stringify(config, null, 2)}\n`;
+}
 function replaceIfProvided(content, placeholder, value) {
     const replacement = cleanPersonalizationValue(value);
     return replacement ? content.replaceAll(placeholder, replacement) : content;
@@ -522,6 +548,19 @@ async function installTemplates(targetArg, options) {
     const skipped = [];
     if (!options.dryRun) {
         await mkdir(targetDir, { recursive: true });
+    }
+    if (options.writeConfig) {
+        const destination = path.join(targetDir, configFileName);
+        const destinationExists = await exists(destination);
+        if (destinationExists && !options.force) {
+            skipped.push(configFileName);
+        }
+        else {
+            created.push(configFileName);
+            if (!options.dryRun) {
+                await writeFile(destination, serializeConfig(getResolvedConfig(options)));
+            }
+        }
     }
     for (const file of files) {
         const destination = path.join(targetDir, file);
@@ -804,6 +843,7 @@ Examples:
         .option("--dry-run", "print planned changes without writing files")
         .option("-i, --interactive", "prompt for install options")
         .option("-y, --yes", "accept defaults for non-interactive runs")
+        .option("--write-config", "write resolved install defaults to agentkit.config.json")
         .option("--preset <name>", `install stack-specific guidance (${formatPresetList()})`)
         .action(async (target, options) => {
         await applyInitConfig(options, await loadConfigForTarget(target));
