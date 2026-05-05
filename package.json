@@ -3,6 +3,23 @@
   "version": "0.2.0",
   "description": "Install AI-agent-ready development templates into a project.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/howie1329/Howard-AgentKit.git"
+  },
+  "homepage": "https://github.com/howie1329/Howard-AgentKit#readme",
+  "bugs": {
+    "url": "https://github.com/howie1329/Howard-AgentKit/issues"
+  },
+  "keywords": [
+    "agentkit",
+    "ai",
+    "agents",
+    "codex",
+    "cli",
+    "scaffolding",
+    "templates"
+  ],
   "type": "module",
   "bin": {
     "agentkit": "./dist/cli.js"
