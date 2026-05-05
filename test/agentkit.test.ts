@@ -76,6 +76,19 @@ describe("agentkit CLI", () => {
     expect(result.stdout.trim().split("\n")).toEqual(expectedTemplates);
   });
 
+  test("--list-presets prints available preset names", () => {
+    const result = run(["--list-presets"]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim().split("\n")).toEqual([
+      "next",
+      "sveltekit",
+      "express",
+      "convex",
+      "fullstack",
+    ]);
+  });
+
   test("required templates exist", () => {
     for (const file of expectedTemplates) {
       expect(fs.existsSync(path.join(templatesDir, file)), file).toBe(true);
@@ -90,6 +103,36 @@ describe("agentkit CLI", () => {
     for (const file of expectedTemplates) {
       expect(fs.existsSync(path.join(target, file)), file).toBe(true);
     }
+    expect(fs.existsSync(path.join(target, "STACK.md"))).toBe(false);
+  });
+
+  test("init --preset next creates stack guidance and references it from AGENTS.md", () => {
+    const target = tempDir();
+    const result = run(["init", target, "--preset", "next"]);
+
+    expect(result.status).toBe(0);
+    for (const file of expectedTemplates) {
+      expect(fs.existsSync(path.join(target, file)), file).toBe(true);
+    }
+
+    const stack = fs.readFileSync(path.join(target, "STACK.md"), "utf8");
+    const agents = fs.readFileSync(path.join(target, "AGENTS.md"), "utf8");
+
+    expect(stack).toMatch(/Next\.js/);
+    expect(agents).toMatch(/STACK\.md/);
+    expect(result.stdout).toMatch(/STACK\.md/);
+  });
+
+  test("init --preset fullstack includes Next.js and Convex guidance", () => {
+    const target = tempDir();
+    const result = run(["init", target, "--preset", "fullstack"]);
+
+    expect(result.status).toBe(0);
+
+    const stack = fs.readFileSync(path.join(target, "STACK.md"), "utf8");
+
+    expect(stack).toMatch(/Next\.js/);
+    expect(stack).toMatch(/Convex/);
   });
 
   test("init defaults to current working directory", () => {
@@ -130,6 +173,23 @@ describe("agentkit CLI", () => {
     expect(result.status).toBe(0);
     expect(fs.existsSync(target)).toBe(false);
     expect(result.stdout).toMatch(/Would install/);
+  });
+
+  test("init --dry-run --preset next writes nothing but reports STACK.md", () => {
+    const target = path.join(tempDir(), "nested-target");
+    const result = run(["init", target, "--dry-run", "--preset", "next"]);
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(target)).toBe(false);
+    expect(result.stdout).toMatch(/Would create: .*STACK\.md/);
+  });
+
+  test("invalid preset exits non-zero and lists valid presets", () => {
+    const result = run(["init", tempDir(), "--preset", "rails"]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/Unknown preset "rails"/);
+    expect(result.stderr).toMatch(/next, sveltekit, express, convex, fullstack/);
   });
 
   test("invalid command exits non-zero", () => {

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { confirm, isCancel, text } from "@clack/prompts";
+import { confirm, isCancel, select, text } from "@clack/prompts";
 import { Command } from "commander";
 import { constants as fsConstants } from "node:fs";
-import { access, copyFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
+import { access, copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
@@ -10,6 +10,63 @@ const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, "..");
 const templatesDir = path.join(packageRoot, "templates");
 const packageJsonPath = path.join(packageRoot, "package.json");
+const validPresets = ["next", "sveltekit", "express", "convex", "fullstack"];
+const presetLabels = {
+    next: "Next.js",
+    sveltekit: "SvelteKit",
+    express: "Express",
+    convex: "Convex",
+    fullstack: "Fullstack",
+};
+const stackGuidance = {
+    next: `# Stack Guidance
+
+## Next.js
+
+- Follow the app's existing routing model before adding new routes or layouts.
+- Keep server and client component boundaries explicit.
+- Prefer server components for data loading unless interactivity requires a client component.
+- Keep mutations in server actions, route handlers, or existing API layers based on local patterns.
+- Use established styling primitives and design tokens before adding new UI conventions.
+- Validate external input at route, action, and API boundaries.
+- Run the project's Next.js build or typecheck before handoff when touching routing, rendering, or data loading.
+`,
+    sveltekit: `# Stack Guidance
+
+## SvelteKit
+
+- Follow the existing route, load, action, and server module patterns before adding new files.
+- Keep browser-only code out of server load functions and server modules.
+- Use SvelteKit form actions and load functions where they fit the workflow.
+- Validate external input at action, endpoint, and server boundary entrypoints.
+- Reuse existing stores, components, and styling conventions before creating new ones.
+- Run the project's SvelteKit check or build before handoff when touching routes, rendering, or data loading.
+`,
+    express: `# Stack Guidance
+
+## Express
+
+- Keep route handlers small and move repeated business logic only when duplication is real.
+- Validate request params, query strings, and bodies at the route boundary.
+- Return explicit status codes and predictable response shapes.
+- Use the project's existing middleware order and error handling pattern.
+- Avoid adding global middleware or dependencies for narrow endpoint changes.
+- Add focused tests for route behavior, validation failures, and error paths.
+`,
+    convex: `# Stack Guidance
+
+## Convex
+
+- Follow generated Convex types and local function patterns before editing schema or functions.
+- Keep queries, mutations, and actions focused on one clear responsibility.
+- Validate arguments with Convex validators at public function boundaries.
+- Preserve explicit authorization checks for user-scoped data.
+- Prefer indexes and schema changes that match real query needs.
+- Run Convex codegen or the project's Convex validation command after schema or function changes.
+`,
+};
+const fullstackGuidance = `${stackGuidance.next}
+${stackGuidance.convex.replace("# Stack Guidance\n\n", "")}`;
 async function exists(filePath) {
     try {
         await access(filePath, fsConstants.F_OK);
@@ -41,9 +98,39 @@ async function getTemplateFiles(dir = templatesDir, base = templatesDir) {
     }));
     return files.flat().sort();
 }
+function isPresetName(value) {
+    return validPresets.includes(value);
+}
+function formatPresetList() {
+    return validPresets.join(", ");
+}
+function resolvePreset(preset) {
+    if (!preset) {
+        return undefined;
+    }
+    const normalizedPreset = preset.toLowerCase();
+    if (!isPresetName(normalizedPreset)) {
+        throw new Error(`Unknown preset "${preset}". Valid presets: ${formatPresetList()}.`);
+    }
+    return normalizedPreset;
+}
+function getStackGuidance(preset) {
+    return preset === "fullstack" ? fullstackGuidance : stackGuidance[preset];
+}
+function addStackReference(file, content, preset) {
+    if (file !== "AGENTS.md" || !preset) {
+        return content;
+    }
+    const stackNote = `\nPreset: ${presetLabels[preset]}. Agents must read \`STACK.md\` before changing stack-specific code.\n`;
+    if (content.includes("## Guidelines")) {
+        return content.replace("\n## Guidelines", `${stackNote}\n## Guidelines`);
+    }
+    return `${content.trimEnd()}\n${stackNote}`;
+}
 async function installTemplates(targetArg, options) {
     const targetDir = path.resolve(process.cwd(), targetArg || ".");
     const files = await getTemplateFiles();
+    const preset = resolvePreset(options.preset);
     const created = [];
     const skipped = [];
     if (!options.dryRun) {
@@ -60,7 +147,27 @@ async function installTemplates(targetArg, options) {
         created.push(file);
         if (!options.dryRun) {
             await mkdir(path.dirname(destination), { recursive: true });
-            await copyFile(source, destination);
+            if (preset && file === "AGENTS.md") {
+                const content = await readFile(source, "utf8");
+                await writeFile(destination, addStackReference(file, content, preset));
+            }
+            else {
+                await copyFile(source, destination);
+            }
+        }
+    }
+    if (preset) {
+        const stackFile = "STACK.md";
+        const destination = path.join(targetDir, stackFile);
+        const destinationExists = await exists(destination);
+        if (destinationExists && !options.force) {
+            skipped.push(stackFile);
+        }
+        else {
+            created.push(stackFile);
+            if (!options.dryRun) {
+                await writeFile(destination, getStackGuidance(preset));
+            }
         }
     }
     return { targetDir, created, skipped };
@@ -80,6 +187,7 @@ function printInstallResult(result, dryRun = false) {
     }
 }
 async function resolveInteractiveTarget(target, options) {
+    const providedPreset = resolvePreset(options.preset);
     if (!options.interactive) {
         return target;
     }
@@ -98,6 +206,22 @@ async function resolveInteractiveTarget(target, options) {
     if (isCancel(forceResponse)) {
         process.exit(130);
     }
+    const presetResponse = await select({
+        message: "Which preset should AgentKit use?",
+        initialValue: providedPreset || "generic",
+        options: [
+            { label: "Generic", value: "generic" },
+            { label: "Next.js", value: "next" },
+            { label: "SvelteKit", value: "sveltekit" },
+            { label: "Express", value: "express" },
+            { label: "Convex", value: "convex" },
+            { label: "Fullstack", value: "fullstack" },
+        ],
+    });
+    if (isCancel(presetResponse)) {
+        process.exit(130);
+    }
+    options.preset = presetResponse === "generic" ? undefined : presetResponse;
     options.force = forceResponse;
     return targetResponse || ".";
 }
@@ -109,17 +233,26 @@ async function main() {
         }
         return;
     }
+    if (process.argv.slice(2).includes("--list-presets")) {
+        for (const preset of validPresets) {
+            console.log(preset);
+        }
+        return;
+    }
     const program = new Command();
     program
         .name("agentkit")
         .description("Bootstrap AI-agent-ready repository docs and workflow templates.")
         .version(await readPackageVersion(), "-v, --version")
         .option("--list", "list bundled template files")
+        .option("--list-presets", "list available presets")
         .addHelpText("after", `
 
 Examples:
   agentkit init
+  agentkit init --preset next
   agentkit init ./my-project --dry-run
+  agentkit --list-presets
   agentkit --list`);
     program
         .command("init")
@@ -129,6 +262,7 @@ Examples:
         .option("--dry-run", "print planned changes without writing files")
         .option("-i, --interactive", "prompt for install options")
         .option("-y, --yes", "accept defaults for non-interactive runs")
+        .option("--preset <name>", `install stack-specific guidance (${formatPresetList()})`)
         .action(async (target, options) => {
         const resolvedTarget = await resolveInteractiveTarget(target, options);
         const result = await installTemplates(resolvedTarget, options);

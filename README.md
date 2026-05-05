@@ -38,10 +38,22 @@ Use the optional interactive flow:
 npx thomas-agentkit init --interactive
 ```
 
+Install stack-specific agent guidance:
+
+```bash
+npx thomas-agentkit init --preset next
+```
+
 List bundled templates:
 
 ```bash
 npx thomas-agentkit --list
+```
+
+List available presets:
+
+```bash
+npx thomas-agentkit --list-presets
 ```
 
 ## Installed Files
@@ -59,13 +71,26 @@ AgentKit copies these bundled files into the target project:
 - `.github/copilot-instructions.md`
 - `.github/pull_request_template.md`
 
+When a preset is selected, AgentKit also installs `STACK.md` and adds a note in `AGENTS.md` telling agents to read it before changing stack-specific code.
+
 Existing files are skipped by default so local edits are preserved. Use `--force` when you intentionally want to refresh files from the bundled package version.
+
+## Presets
+
+Presets add stack-specific guidance without scaffolding framework app files.
+
+- `next`
+- `sveltekit`
+- `express`
+- `convex`
+- `fullstack` (`Next.js` + `Convex`)
 
 ## CLI Reference
 
 ```text
-agentkit init [target] [--force] [--dry-run] [--interactive] [--yes]
+agentkit init [target] [--force] [--dry-run] [--interactive] [--yes] [--preset <name>]
 agentkit --list
+agentkit --list-presets
 agentkit --help
 agentkit --version
 ```
@@ -76,7 +101,9 @@ Options:
 - `--dry-run`: print planned changes without writing files
 - `-i, --interactive`: prompt for install options
 - `-y, --yes`: accept defaults for non-interactive runs
+- `--preset <name>`: install stack-specific guidance (`next`, `sveltekit`, `express`, `convex`, `fullstack`)
 - `--list`: list bundled template files
+- `--list-presets`: list available presets
 - `-h, --help`: show help
 - `-v, --version`: show package version
 
