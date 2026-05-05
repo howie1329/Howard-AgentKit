@@ -3,6 +3,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, test } from "vitest";
+import {
+  getFilesForAiTools,
+  getFilesForTemplateSet,
+  getSelectedTemplateFiles,
+  resolveProjectPreset,
+} from "../src/cli.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 const cli = path.join(root, "dist", "cli.js");
@@ -96,9 +102,46 @@ describe("agentkit CLI", () => {
     }
   });
 
+  test("maps project types to presets", () => {
+    expect(resolveProjectPreset("generic")).toBeUndefined();
+    expect(resolveProjectPreset("next")).toBe("next");
+    expect(resolveProjectPreset("sveltekit")).toBe("sveltekit");
+    expect(resolveProjectPreset("express")).toBe("express");
+    expect(resolveProjectPreset("convex")).toBe("convex");
+    expect(resolveProjectPreset("fullstack")).toBe("fullstack");
+  });
+
+  test("maps AI tool selections to tool-specific files", () => {
+    expect(getFilesForAiTools(["codex", "cursor", "claude", "copilot"])).toEqual([
+      ".cursor/rules/agentkit.md",
+      ".github/copilot-instructions.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+    ]);
+  });
+
+  test("maps template sets to bundled files", () => {
+    expect(getFilesForTemplateSet("minimal", expectedTemplates)).toEqual(["AGENTS.md"]);
+    expect(getFilesForTemplateSet("standard", expectedTemplates)).toEqual([
+      "AGENTS.md",
+      "CODE-QUALITY.md",
+      "DESIGN-SYSTEM.md",
+      "WORKFLOWS.md",
+    ]);
+    expect(getFilesForTemplateSet("full", expectedTemplates)).toEqual(expectedTemplates);
+  });
+
+  test("combines template set and AI tool files", () => {
+    expect(getSelectedTemplateFiles("minimal", ["cursor", "claude"], expectedTemplates)).toEqual([
+      ".cursor/rules/agentkit.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+    ]);
+  });
+
   test("init creates expected files recursively", () => {
     const target = tempDir();
-    const result = run(["init", target]);
+    const result = run(["init", target, "--yes"]);
 
     expect(result.status).toBe(0);
     for (const file of expectedTemplates) {
@@ -112,7 +155,7 @@ describe("agentkit CLI", () => {
 
   test("init --preset next creates stack guidance and references it from AGENTS.md", () => {
     const target = tempDir();
-    const result = run(["init", target, "--preset", "next"]);
+    const result = run(["init", target, "--yes", "--preset", "next"]);
 
     expect(result.status).toBe(0);
     for (const file of expectedTemplates) {
@@ -130,7 +173,7 @@ describe("agentkit CLI", () => {
 
   test("init --preset fullstack includes Next.js and Convex guidance", () => {
     const target = tempDir();
-    const result = run(["init", target, "--preset", "fullstack"]);
+    const result = run(["init", target, "--yes", "--preset", "fullstack"]);
 
     expect(result.status).toBe(0);
 
@@ -142,7 +185,7 @@ describe("agentkit CLI", () => {
 
   test("init defaults to current working directory", () => {
     const target = tempDir();
-    const result = run(["init"], { cwd: target });
+    const result = run(["init", "--yes"], { cwd: target });
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(target, "AGENTS.md"))).toBe(true);
@@ -153,7 +196,7 @@ describe("agentkit CLI", () => {
     const agentsPath = path.join(target, "AGENTS.md");
     fs.writeFileSync(agentsPath, "custom content\n");
 
-    const result = run(["init", target]);
+    const result = run(["init", target, "--yes"]);
 
     expect(result.status).toBe(0);
     expect(fs.readFileSync(agentsPath, "utf8")).toBe("custom content\n");
@@ -165,7 +208,7 @@ describe("agentkit CLI", () => {
     const agentsPath = path.join(target, "AGENTS.md");
     fs.writeFileSync(agentsPath, "custom content\n");
 
-    const result = run(["init", target, "--force"]);
+    const result = run(["init", target, "--yes", "--force"]);
 
     expect(result.status).toBe(0);
     expect(fs.readFileSync(agentsPath, "utf8")).not.toBe("custom content\n");
@@ -174,7 +217,7 @@ describe("agentkit CLI", () => {
 
   test("init --dry-run writes nothing", () => {
     const target = path.join(tempDir(), "nested-target");
-    const result = run(["init", target, "--dry-run"]);
+    const result = run(["init", target, "--yes", "--dry-run"]);
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(target)).toBe(false);
@@ -183,7 +226,7 @@ describe("agentkit CLI", () => {
 
   test("init --dry-run --preset next writes nothing but reports STACK.md", () => {
     const target = path.join(tempDir(), "nested-target");
-    const result = run(["init", target, "--dry-run", "--preset", "next"]);
+    const result = run(["init", target, "--yes", "--dry-run", "--preset", "next"]);
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(target)).toBe(false);
@@ -191,7 +234,7 @@ describe("agentkit CLI", () => {
   });
 
   test("invalid preset exits non-zero and lists valid presets", () => {
-    const result = run(["init", tempDir(), "--preset", "rails"]);
+    const result = run(["init", tempDir(), "--yes", "--preset", "rails"]);
 
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/Unknown preset "rails"/);

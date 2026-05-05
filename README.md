@@ -14,16 +14,24 @@ Install templates into the current directory:
 npx thomas-agentkit init
 ```
 
+By default, `init` opens a short interactive setup flow in terminals.
+
 Install into another directory:
 
 ```bash
 npx thomas-agentkit init ./my-project
 ```
 
+Accept defaults without prompts:
+
+```bash
+npx thomas-agentkit init --yes
+```
+
 Preview changes without writing files:
 
 ```bash
-npx thomas-agentkit init --dry-run
+npx thomas-agentkit init --yes --dry-run
 ```
 
 Overwrite existing files:
@@ -44,7 +52,7 @@ Preview updates without writing files:
 npx thomas-agentkit update --dry-run
 ```
 
-Use the optional interactive flow:
+Explicitly request the interactive flow:
 
 ```bash
 npx thomas-agentkit init --interactive
@@ -122,8 +130,8 @@ Options:
 
 - `--force`: overwrite existing files
 - `--dry-run`: print planned changes without writing files
-- `-i, --interactive`: prompt for install options
-- `-y, --yes`: accept defaults for non-interactive runs
+- `-i, --interactive`: explicitly prompt for install options
+- `-y, --yes`: accept defaults without prompts
 - `--preset <name>`: install stack-specific guidance (`next`, `sveltekit`, `express`, `convex`, `fullstack`)
 - `--list`: list bundled template files
 - `--list-presets`: list available presets
@@ -136,7 +144,7 @@ For `agentkit update`, `--preset <name>` refreshes preset-specific managed conte
 
 ```bash
 npm install
-npm run dev -- init ./tmp-demo --dry-run
+npm run dev -- init ./tmp-demo --yes --dry-run
 npm run build
 npm test
 ```
