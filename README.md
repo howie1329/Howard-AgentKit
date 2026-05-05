@@ -66,6 +66,29 @@ Install stack-specific agent guidance:
 npx thomas-agentkit init --preset next
 ```
 
+Standardize install defaults with `agentkit.config.json`:
+
+```json
+{
+  "preset": "next",
+  "templateSet": "standard",
+  "aiTools": ["codex", "cursor", "claude"],
+  "personalization": {
+    "projectName": "Acme CRM",
+    "projectDescription": "a customer operations dashboard",
+    "issueTracker": "Linear",
+    "designSystemPath": "docs/design-system.md",
+    "briefsPath": "docs/briefs",
+    "testCommand": "pnpm test",
+    "lintCommand": "pnpm lint",
+    "buildCommand": "pnpm build",
+    "stackSummary": "Next.js, TypeScript, PostgreSQL"
+  }
+}
+```
+
+AgentKit reads `agentkit.config.json` from the target directory first. When installing into another target that does not have a config file, it falls back to the current working directory. Config values are defaults: explicit CLI flags override them.
+
 List bundled templates:
 
 ```bash
@@ -108,6 +131,8 @@ Generated content
 `agentkit update` only replaces content inside matching managed blocks. User edits before or after those blocks are preserved. Existing legacy files without managed blocks are reported as unmanaged and left untouched.
 
 Interactive personalization only applies during `agentkit init` when files are created or overwritten. It does not write a config file, and `agentkit update` does not reapply personalized values.
+
+`agentkit.config.json` can set `preset`, `templateSet`, `aiTools`, and `personalization` defaults. `templateSet` may be `minimal`, `standard`, or `full`; `aiTools` may include `codex`, `cursor`, `claude`, and `copilot`. `agentkit update` only uses config `preset` and continues to update all managed bundled templates.
 
 ## Presets
 

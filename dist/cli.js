@@ -13,6 +13,20 @@ const packageJsonPath = path.join(packageRoot, "package.json");
 const validPresets = ["next", "sveltekit", "express", "convex", "fullstack"];
 const validProjectTypes = ["generic", ...validPresets];
 const validAiTools = ["codex", "cursor", "claude", "copilot"];
+const validTemplateSets = ["minimal", "standard", "full"];
+const configFileName = "agentkit.config.json";
+const configKeys = ["preset", "templateSet", "aiTools", "personalization"];
+const personalizationKeys = [
+    "projectName",
+    "projectDescription",
+    "issueTracker",
+    "designSystemPath",
+    "briefsPath",
+    "testCommand",
+    "lintCommand",
+    "buildCommand",
+    "stackSummary",
+];
 const presetLabels = {
     next: "Next.js",
     sveltekit: "SvelteKit",
@@ -120,8 +134,14 @@ function isProjectTypeName(value) {
 function isAiToolName(value) {
     return validAiTools.includes(value);
 }
+function isTemplateSetName(value) {
+    return validTemplateSets.includes(value);
+}
 function formatPresetList() {
     return validPresets.join(", ");
+}
+function formatTemplateSetList() {
+    return validTemplateSets.join(", ");
 }
 function resolvePreset(preset) {
     if (!preset) {
@@ -132,6 +152,115 @@ function resolvePreset(preset) {
         throw new Error(`Unknown preset "${preset}". Valid presets: ${formatPresetList()}.`);
     }
     return normalizedPreset;
+}
+function resolveTemplateSet(templateSet) {
+    if (!templateSet) {
+        return undefined;
+    }
+    const normalizedTemplateSet = templateSet.toLowerCase();
+    if (!isTemplateSetName(normalizedTemplateSet)) {
+        throw new Error(`Unknown template set "${templateSet}". Valid template sets: ${formatTemplateSetList()}.`);
+    }
+    return normalizedTemplateSet;
+}
+function assertPlainObject(value, name) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        throw new Error(`${name} must be an object.`);
+    }
+}
+function assertKnownKeys(value, validKeys, name) {
+    for (const key of Object.keys(value)) {
+        if (!validKeys.includes(key)) {
+            throw new Error(`Unknown ${name} key "${key}". Valid keys: ${validKeys.join(", ")}.`);
+        }
+    }
+}
+function parseConfig(rawConfig, configPath) {
+    assertPlainObject(rawConfig, configFileName);
+    assertKnownKeys(rawConfig, configKeys, configFileName);
+    const config = {};
+    if (rawConfig.preset !== undefined) {
+        if (typeof rawConfig.preset !== "string") {
+            throw new Error(`${configFileName} preset must be a string.`);
+        }
+        config.preset = resolvePreset(rawConfig.preset);
+    }
+    if (rawConfig.templateSet !== undefined) {
+        if (typeof rawConfig.templateSet !== "string") {
+            throw new Error(`${configFileName} templateSet must be a string.`);
+        }
+        config.templateSet = resolveTemplateSet(rawConfig.templateSet);
+    }
+    if (rawConfig.aiTools !== undefined) {
+        if (!Array.isArray(rawConfig.aiTools)) {
+            throw new Error(`${configFileName} aiTools must be an array.`);
+        }
+        config.aiTools = rawConfig.aiTools.map((aiTool) => {
+            if (typeof aiTool !== "string" || !isAiToolName(aiTool)) {
+                throw new Error(`Unknown AI tool "${String(aiTool)}". Valid AI tools: ${validAiTools.join(", ")}.`);
+            }
+            return aiTool;
+        });
+    }
+    if (rawConfig.personalization !== undefined) {
+        assertPlainObject(rawConfig.personalization, `${configFileName} personalization`);
+        assertKnownKeys(rawConfig.personalization, personalizationKeys, `${configFileName} personalization`);
+        config.personalization = {};
+        for (const [key, value] of Object.entries(rawConfig.personalization)) {
+            if (typeof value !== "string") {
+                throw new Error(`${configFileName} personalization.${key} must be a string.`);
+            }
+            config.personalization[key] = value;
+        }
+    }
+    if (config.preset === undefined && rawConfig.preset !== undefined) {
+        throw new Error(`Invalid preset in ${configPath}.`);
+    }
+    return config;
+}
+async function readConfig(configPath) {
+    let rawContent;
+    try {
+        rawContent = await readFile(configPath, "utf8");
+    }
+    catch {
+        throw new Error(`Unable to read ${configPath}.`);
+    }
+    try {
+        return parseConfig(JSON.parse(rawContent), configPath);
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid ${configPath}: ${message}`);
+    }
+}
+async function loadConfigForTarget(targetArg) {
+    const cwd = process.cwd();
+    const targetDir = path.resolve(cwd, targetArg || ".");
+    const targetConfigPath = path.join(targetDir, configFileName);
+    if (await exists(targetConfigPath)) {
+        return readConfig(targetConfigPath);
+    }
+    const cwdConfigPath = path.join(cwd, configFileName);
+    if (targetDir !== cwd && (await exists(cwdConfigPath))) {
+        return readConfig(cwdConfigPath);
+    }
+    return undefined;
+}
+async function applyInitConfig(options, config) {
+    if (!config) {
+        return;
+    }
+    options.preset ??= config.preset;
+    options.personalization ??= config.personalization;
+    options.templateSet ??= config.templateSet;
+    options.aiTools ??= config.aiTools;
+}
+function applyUpdateConfig(options, config) {
+    if (!config) {
+        return;
+    }
+    options.preset ??= config.preset;
 }
 export function resolveProjectPreset(projectType) {
     if (!projectType) {
@@ -282,10 +411,10 @@ export function personalizeTemplateContent(file, content, values) {
     }
     return personalized;
 }
-async function promptForPersonalization() {
+async function promptForPersonalization(defaults) {
     const shouldPersonalize = await confirm({
         message: "Personalize template placeholders?",
-        initialValue: false,
+        initialValue: Boolean(defaults),
     });
     if (isCancel(shouldPersonalize)) {
         process.exit(130);
@@ -296,6 +425,7 @@ async function promptForPersonalization() {
     const projectName = await text({
         message: "Project name",
         placeholder: "[Project Name]",
+        defaultValue: defaults?.projectName,
     });
     if (isCancel(projectName)) {
         process.exit(130);
@@ -303,6 +433,7 @@ async function promptForPersonalization() {
     const projectDescription = await text({
         message: "Short project description",
         placeholder: "[short project description]",
+        defaultValue: defaults?.projectDescription,
     });
     if (isCancel(projectDescription)) {
         process.exit(130);
@@ -310,6 +441,7 @@ async function promptForPersonalization() {
     const issueTracker = await text({
         message: "Issue tracker name",
         placeholder: "Linear or GitHub Issues",
+        defaultValue: defaults?.issueTracker,
     });
     if (isCancel(issueTracker)) {
         process.exit(130);
@@ -317,6 +449,7 @@ async function promptForPersonalization() {
     const designSystemPath = await text({
         message: "Design system path",
         placeholder: "docs/design-system.md",
+        defaultValue: defaults?.designSystemPath,
     });
     if (isCancel(designSystemPath)) {
         process.exit(130);
@@ -324,6 +457,7 @@ async function promptForPersonalization() {
     const briefsPath = await text({
         message: "Briefs path",
         placeholder: "docs/briefs",
+        defaultValue: defaults?.briefsPath,
     });
     if (isCancel(briefsPath)) {
         process.exit(130);
@@ -331,6 +465,7 @@ async function promptForPersonalization() {
     const testCommand = await text({
         message: "Test command",
         placeholder: "npm test",
+        defaultValue: defaults?.testCommand,
     });
     if (isCancel(testCommand)) {
         process.exit(130);
@@ -338,6 +473,7 @@ async function promptForPersonalization() {
     const lintCommand = await text({
         message: "Lint command",
         placeholder: "npm run lint",
+        defaultValue: defaults?.lintCommand,
     });
     if (isCancel(lintCommand)) {
         process.exit(130);
@@ -345,6 +481,7 @@ async function promptForPersonalization() {
     const buildCommand = await text({
         message: "Build/check command",
         placeholder: "npm run build",
+        defaultValue: defaults?.buildCommand,
     });
     if (isCancel(buildCommand)) {
         process.exit(130);
@@ -352,6 +489,7 @@ async function promptForPersonalization() {
     const stackSummary = await text({
         message: "Stack summary",
         placeholder: "Next.js, TypeScript, Tailwind CSS, Vitest",
+        defaultValue: defaults?.stackSummary,
     });
     if (isCancel(stackSummary)) {
         process.exit(130);
@@ -374,7 +512,11 @@ async function buildInitTemplateContent(file, preset, personalization) {
 }
 async function installTemplates(targetArg, options) {
     const targetDir = path.resolve(process.cwd(), targetArg || ".");
-    const files = options.files ?? (await getTemplateFiles());
+    const allTemplateFiles = await getTemplateFiles();
+    const files = options.files ??
+        (options.templateSet || options.aiTools
+            ? getSelectedTemplateFiles(options.templateSet ?? "full", options.aiTools ?? [], allTemplateFiles)
+            : allTemplateFiles);
     const preset = resolvePreset(options.preset);
     const created = [];
     const skipped = [];
@@ -569,7 +711,7 @@ async function resolveInteractiveTarget(target, options) {
     }
     const aiToolResponse = await multiselect({
         message: "Which AI tools do you use?",
-        initialValues: ["codex", "cursor", "claude"],
+        initialValues: options.aiTools ?? ["codex", "cursor", "claude"],
         options: [
             { label: "Codex", value: "codex" },
             { label: "Cursor", value: "cursor" },
@@ -582,7 +724,7 @@ async function resolveInteractiveTarget(target, options) {
     }
     const templateSetResponse = await select({
         message: "Which template set do you want?",
-        initialValue: "standard",
+        initialValue: options.templateSet ?? "standard",
         options: [
             { label: "Minimal", value: "minimal" },
             { label: "Standard", value: "standard" },
@@ -593,6 +735,8 @@ async function resolveInteractiveTarget(target, options) {
         process.exit(130);
     }
     const templateFiles = await getTemplateFiles();
+    options.templateSet = templateSetResponse;
+    options.aiTools = aiToolResponse;
     options.files = getSelectedTemplateFiles(templateSetResponse, aiToolResponse, templateFiles);
     if (!options.force) {
         const preset = resolvePreset(options.preset);
@@ -619,7 +763,7 @@ async function resolveInteractiveTarget(target, options) {
             options.force = conflictResponse === "overwrite";
         }
     }
-    options.personalization = await promptForPersonalization();
+    options.personalization = await promptForPersonalization(options.personalization);
     return resolvedTarget || ".";
 }
 async function main() {
@@ -662,6 +806,7 @@ Examples:
         .option("-y, --yes", "accept defaults for non-interactive runs")
         .option("--preset <name>", `install stack-specific guidance (${formatPresetList()})`)
         .action(async (target, options) => {
+        await applyInitConfig(options, await loadConfigForTarget(target));
         const resolvedTarget = await resolveInteractiveTarget(target, options);
         const result = await installTemplates(resolvedTarget, options);
         printInstallResult(result, Boolean(options.dryRun));
@@ -673,6 +818,7 @@ Examples:
         .option("--dry-run", "print planned changes without writing files")
         .option("--preset <name>", `update stack-specific guidance (${formatPresetList()})`)
         .action(async (target, options) => {
+        applyUpdateConfig(options, await loadConfigForTarget(target));
         const result = await updateTemplates(target, options);
         printUpdateResult(result, Boolean(options.dryRun));
     });
