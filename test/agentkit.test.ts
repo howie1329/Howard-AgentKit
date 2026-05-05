@@ -60,6 +60,7 @@ describe("agentkit CLI", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/Usage:/);
     expect(result.stdout).toMatch(/agentkit init/);
+    expect(result.stdout).toMatch(/agentkit update/);
   });
 
   test("--version prints package version", () => {
@@ -103,6 +104,9 @@ describe("agentkit CLI", () => {
     for (const file of expectedTemplates) {
       expect(fs.existsSync(path.join(target, file)), file).toBe(true);
     }
+    expect(fs.readFileSync(path.join(target, "AGENTS.md"), "utf8")).toMatch(
+      /<!-- agentkit:start agents -->/,
+    );
     expect(fs.existsSync(path.join(target, "STACK.md"))).toBe(false);
   });
 
@@ -119,6 +123,7 @@ describe("agentkit CLI", () => {
     const agents = fs.readFileSync(path.join(target, "AGENTS.md"), "utf8");
 
     expect(stack).toMatch(/Next\.js/);
+    expect(stack).toMatch(/<!-- agentkit:start stack -->/);
     expect(agents).toMatch(/STACK\.md/);
     expect(result.stdout).toMatch(/STACK\.md/);
   });
@@ -164,6 +169,7 @@ describe("agentkit CLI", () => {
 
     expect(result.status).toBe(0);
     expect(fs.readFileSync(agentsPath, "utf8")).not.toBe("custom content\n");
+    expect(fs.readFileSync(agentsPath, "utf8")).toMatch(/<!-- agentkit:start agents -->/);
   });
 
   test("init --dry-run writes nothing", () => {
@@ -204,5 +210,107 @@ describe("agentkit CLI", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/unknown option/i);
+  });
+
+  test("update creates missing managed files", () => {
+    const target = tempDir();
+    const result = run(["update", target]);
+
+    expect(result.status).toBe(0);
+    for (const file of expectedTemplates) {
+      expect(fs.existsSync(path.join(target, file)), file).toBe(true);
+    }
+    expect(fs.readFileSync(path.join(target, "CODE-QUALITY.md"), "utf8")).toMatch(
+      /<!-- agentkit:start code-quality -->/,
+    );
+    expect(result.stdout).toMatch(/Created:/);
+  });
+
+  test("update replaces only managed block content", () => {
+    const target = tempDir();
+    const agentsPath = path.join(target, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      "custom header\n<!-- agentkit:start agents -->\nold generated content\n<!-- agentkit:end agents -->\ncustom footer\n",
+    );
+
+    const result = run(["update", target]);
+    const agents = fs.readFileSync(agentsPath, "utf8");
+
+    expect(result.status).toBe(0);
+    expect(agents).toMatch(/^custom header\n/);
+    expect(agents).toMatch(/# \[Project Name\] Agent Guide/);
+    expect(agents).toMatch(/custom footer\n$/);
+    expect(agents).not.toMatch(/old generated content/);
+    expect(result.stdout).toMatch(/Updated: AGENTS\.md/);
+  });
+
+  test("update skips unmanaged legacy files", () => {
+    const target = tempDir();
+    const agentsPath = path.join(target, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "custom content\n");
+
+    const result = run(["update", target]);
+
+    expect(result.status).toBe(0);
+    expect(fs.readFileSync(agentsPath, "utf8")).toBe("custom content\n");
+    expect(result.stdout).toMatch(/Skipped unmanaged: AGENTS\.md/);
+  });
+
+  test("update skips malformed managed blocks", () => {
+    const target = tempDir();
+    const agentsPath = path.join(target, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "<!-- agentkit:start agents -->\nmissing end marker\n");
+
+    const result = run(["update", target]);
+
+    expect(result.status).toBe(0);
+    expect(fs.readFileSync(agentsPath, "utf8")).toBe(
+      "<!-- agentkit:start agents -->\nmissing end marker\n",
+    );
+    expect(result.stdout).toMatch(/Skipped malformed: AGENTS\.md/);
+  });
+
+  test("update --dry-run writes nothing", () => {
+    const target = tempDir();
+    const agentsPath = path.join(target, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      "<!-- agentkit:start agents -->\nold generated content\n<!-- agentkit:end agents -->\n",
+    );
+
+    const result = run(["update", target, "--dry-run"]);
+
+    expect(result.status).toBe(0);
+    expect(fs.readFileSync(agentsPath, "utf8")).toBe(
+      "<!-- agentkit:start agents -->\nold generated content\n<!-- agentkit:end agents -->\n",
+    );
+    expect(result.stdout).toMatch(/Would update: AGENTS\.md/);
+  });
+
+  test("update --preset next updates stack guidance and AGENTS.md preset reference", () => {
+    const target = tempDir();
+    const stackPath = path.join(target, "STACK.md");
+    const agentsPath = path.join(target, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      "<!-- agentkit:start agents -->\nold agents\n<!-- agentkit:end agents -->\n",
+    );
+    fs.writeFileSync(
+      stackPath,
+      "<!-- agentkit:start stack -->\nold stack\n<!-- agentkit:end stack -->\n",
+    );
+
+    const result = run(["update", target, "--preset", "next"]);
+    const agents = fs.readFileSync(agentsPath, "utf8");
+    const stack = fs.readFileSync(stackPath, "utf8");
+
+    expect(result.status).toBe(0);
+    expect(agents).toMatch(/Preset: Next\.js/);
+    expect(agents).toMatch(/STACK\.md/);
+    expect(stack).toMatch(/Next\.js/);
+    expect(stack).not.toMatch(/old stack/);
+    expect(result.stdout).toMatch(/Updated: .*AGENTS\.md/);
+    expect(result.stdout).toMatch(/Updated: .*STACK\.md/);
   });
 });
