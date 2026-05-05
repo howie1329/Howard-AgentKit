@@ -32,6 +32,18 @@ Overwrite existing files:
 npx thomas-agentkit init --force
 ```
 
+Update AgentKit-managed template sections:
+
+```bash
+npx thomas-agentkit update
+```
+
+Preview updates without writing files:
+
+```bash
+npx thomas-agentkit update --dry-run
+```
+
 Use the optional interactive flow:
 
 ```bash
@@ -75,6 +87,16 @@ When a preset is selected, AgentKit also installs `STACK.md` and adds a note in 
 
 Existing files are skipped by default so local edits are preserved. Use `--force` when you intentionally want to refresh files from the bundled package version.
 
+New installs wrap generated template content in AgentKit managed block markers:
+
+```html
+<!-- agentkit:start agents -->
+Generated content
+<!-- agentkit:end agents -->
+```
+
+`agentkit update` only replaces content inside matching managed blocks. User edits before or after those blocks are preserved. Existing legacy files without managed blocks are reported as unmanaged and left untouched.
+
 ## Presets
 
 Presets add stack-specific guidance without scaffolding framework app files.
@@ -89,6 +111,7 @@ Presets add stack-specific guidance without scaffolding framework app files.
 
 ```text
 agentkit init [target] [--force] [--dry-run] [--interactive] [--yes] [--preset <name>]
+agentkit update [target] [--dry-run] [--preset <name>]
 agentkit --list
 agentkit --list-presets
 agentkit --help
@@ -106,6 +129,8 @@ Options:
 - `--list-presets`: list available presets
 - `-h, --help`: show help
 - `-v, --version`: show package version
+
+For `agentkit update`, `--preset <name>` refreshes preset-specific managed content, including `STACK.md`.
 
 ## Local Development
 

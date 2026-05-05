@@ -2,7 +2,7 @@
 import { confirm, isCancel, select, text } from "@clack/prompts";
 import { Command } from "commander";
 import { constants as fsConstants } from "node:fs";
-import { access, copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
@@ -117,6 +117,19 @@ function resolvePreset(preset) {
 function getStackGuidance(preset) {
     return preset === "fullstack" ? fullstackGuidance : stackGuidance[preset];
 }
+function getTemplateId(file) {
+    return file
+        .replace(/\.[^/.]+$/, "")
+        .replace(/^\./, "")
+        .split("/")
+        .filter(Boolean)
+        .join("-")
+        .toLowerCase();
+}
+function wrapManagedBlock(file, content) {
+    const id = getTemplateId(file);
+    return `<!-- agentkit:start ${id} -->\n${content.trimEnd()}\n<!-- agentkit:end ${id} -->\n`;
+}
 function addStackReference(file, content, preset) {
     if (file !== "AGENTS.md" || !preset) {
         return content;
@@ -149,10 +162,11 @@ async function installTemplates(targetArg, options) {
             await mkdir(path.dirname(destination), { recursive: true });
             if (preset && file === "AGENTS.md") {
                 const content = await readFile(source, "utf8");
-                await writeFile(destination, addStackReference(file, content, preset));
+                await writeFile(destination, wrapManagedBlock(file, addStackReference(file, content, preset)));
             }
             else {
-                await copyFile(source, destination);
+                const content = await readFile(source, "utf8");
+                await writeFile(destination, wrapManagedBlock(file, content));
             }
         }
     }
@@ -166,11 +180,83 @@ async function installTemplates(targetArg, options) {
         else {
             created.push(stackFile);
             if (!options.dryRun) {
-                await writeFile(destination, getStackGuidance(preset));
+                await writeFile(destination, wrapManagedBlock(stackFile, getStackGuidance(preset)));
             }
         }
     }
     return { targetDir, created, skipped };
+}
+function replaceManagedBlock(file, existingContent, nextContent) {
+    const id = getTemplateId(file);
+    const startMarker = `<!-- agentkit:start ${id} -->`;
+    const endMarker = `<!-- agentkit:end ${id} -->`;
+    const startIndex = existingContent.indexOf(startMarker);
+    const endIndex = existingContent.indexOf(endMarker);
+    if (startIndex === -1 && endIndex === -1) {
+        return undefined;
+    }
+    if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+        throw new Error(`Malformed managed block in ${file}.`);
+    }
+    const afterEndIndex = endIndex + endMarker.length;
+    const replacement = wrapManagedBlock(file, nextContent).trimEnd();
+    return `${existingContent.slice(0, startIndex)}${replacement}${existingContent.slice(afterEndIndex)}`;
+}
+async function buildTemplateContent(file, preset) {
+    if (file === "STACK.md") {
+        if (!preset) {
+            throw new Error("STACK.md requires a preset.");
+        }
+        return getStackGuidance(preset);
+    }
+    const source = path.join(templatesDir, file);
+    const content = await readFile(source, "utf8");
+    return addStackReference(file, content, preset);
+}
+async function updateTemplates(targetArg, options) {
+    const targetDir = path.resolve(process.cwd(), targetArg || ".");
+    const preset = resolvePreset(options.preset);
+    const files = preset ? [...(await getTemplateFiles()), "STACK.md"] : await getTemplateFiles();
+    const created = [];
+    const updated = [];
+    const skipped = [];
+    const malformed = [];
+    const unchanged = [];
+    for (const file of files) {
+        const destination = path.join(targetDir, file);
+        const nextContent = await buildTemplateContent(file, preset);
+        const destinationExists = await exists(destination);
+        if (!destinationExists) {
+            created.push(file);
+            if (!options.dryRun) {
+                await mkdir(path.dirname(destination), { recursive: true });
+                await writeFile(destination, wrapManagedBlock(file, nextContent));
+            }
+            continue;
+        }
+        const existingContent = await readFile(destination, "utf8");
+        let updatedContent;
+        try {
+            updatedContent = replaceManagedBlock(file, existingContent, nextContent);
+        }
+        catch {
+            malformed.push(file);
+            continue;
+        }
+        if (updatedContent === undefined) {
+            skipped.push(file);
+            continue;
+        }
+        if (updatedContent === existingContent) {
+            unchanged.push(file);
+            continue;
+        }
+        updated.push(file);
+        if (!options.dryRun) {
+            await writeFile(destination, updatedContent);
+        }
+    }
+    return { targetDir, created, updated, skipped, malformed, unchanged };
 }
 function printInstallResult(result, dryRun = false) {
     const action = dryRun ? "Would install" : "Installed";
@@ -184,6 +270,33 @@ function printInstallResult(result, dryRun = false) {
     }
     if (result.created.length === 0 && result.skipped.length === 0) {
         console.log("No bundled templates found.");
+    }
+}
+function printUpdateResult(result, dryRun = false) {
+    const action = dryRun ? "Would update" : "Updated";
+    console.log(`${action} AgentKit files in ${result.targetDir}`);
+    if (result.created.length > 0) {
+        console.log(`${dryRun ? "Would create" : "Created"}: ${result.created.join(", ")}`);
+    }
+    if (result.updated.length > 0) {
+        console.log(`${dryRun ? "Would update" : "Updated"}: ${result.updated.join(", ")}`);
+    }
+    if (result.unchanged.length > 0) {
+        console.log(`Already current: ${result.unchanged.join(", ")}`);
+    }
+    if (result.skipped.length > 0) {
+        console.log(`Skipped unmanaged: ${result.skipped.join(", ")}`);
+        console.log("Add AgentKit managed block markers before updating these files.");
+    }
+    if (result.malformed.length > 0) {
+        console.log(`Skipped malformed: ${result.malformed.join(", ")}`);
+        console.log("Fix AgentKit managed block markers before updating these files.");
+    }
+    if (result.created.length === 0 &&
+        result.updated.length === 0 &&
+        result.skipped.length === 0 &&
+        result.malformed.length === 0) {
+        console.log("All managed AgentKit files are current.");
     }
 }
 async function resolveInteractiveTarget(target, options) {
@@ -250,6 +363,7 @@ async function main() {
 
 Examples:
   agentkit init
+  agentkit update
   agentkit init --preset next
   agentkit init ./my-project --dry-run
   agentkit --list-presets
@@ -267,6 +381,16 @@ Examples:
         const resolvedTarget = await resolveInteractiveTarget(target, options);
         const result = await installTemplates(resolvedTarget, options);
         printInstallResult(result, Boolean(options.dryRun));
+    });
+    program
+        .command("update")
+        .description("update AgentKit managed template blocks in a project")
+        .argument("[target]", "target project directory", ".")
+        .option("--dry-run", "print planned changes without writing files")
+        .option("--preset <name>", `update stack-specific guidance (${formatPresetList()})`)
+        .action(async (target, options) => {
+        const result = await updateTemplates(target, options);
+        printUpdateResult(result, Boolean(options.dryRun));
     });
     await program.parseAsync(process.argv);
 }
