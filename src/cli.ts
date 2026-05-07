@@ -11,6 +11,7 @@ type PresetName = "next" | "sveltekit" | "express" | "convex" | "fullstack";
 type ProjectTypeName = PresetName | "generic";
 type AiToolName = "codex" | "cursor" | "claude" | "copilot";
 type TemplateSetName = "minimal" | "standard" | "full";
+type DesignSystemName = "linear";
 
 export type PersonalizationValues = {
   projectName?: string;
@@ -31,6 +32,7 @@ type InitOptions = {
   interactive?: boolean;
   writeConfig?: boolean;
   preset?: string;
+  designSystem?: string;
   files?: string[];
   templateSet?: TemplateSetName;
   aiTools?: AiToolName[];
@@ -46,12 +48,14 @@ type InstallResult = {
 type UpdateOptions = {
   dryRun?: boolean;
   preset?: string;
+  designSystem?: string;
 };
 
 type AgentKitConfig = {
   preset?: PresetName;
   templateSet?: TemplateSetName;
   aiTools?: AiToolName[];
+  designSystem?: DesignSystemName;
   personalization?: PersonalizationValues;
 };
 
@@ -73,8 +77,13 @@ const validPresets: PresetName[] = ["next", "sveltekit", "express", "convex", "f
 const validProjectTypes: ProjectTypeName[] = ["generic", ...validPresets];
 const validAiTools: AiToolName[] = ["codex", "cursor", "claude", "copilot"];
 const validTemplateSets: TemplateSetName[] = ["minimal", "standard", "full"];
+const validDesignSystems: DesignSystemName[] = ["linear"];
+
+const designSystemLabels: Record<DesignSystemName, string> = {
+  linear: "Linear-inspired",
+};
 const configFileName = "agentkit.config.json";
-const configKeys = ["preset", "templateSet", "aiTools", "personalization"];
+const configKeys = ["preset", "templateSet", "aiTools", "designSystem", "personalization"];
 const personalizationKeys = [
   "projectName",
   "projectDescription",
@@ -176,7 +185,7 @@ async function readPackageVersion(): Promise<string> {
   return packageJson.version ?? "0.0.0";
 }
 
-async function getTemplateFiles(dir = templatesDir, base = templatesDir): Promise<string[]> {
+async function collectInstallableTemplatePaths(dir: string, base: string): Promise<string[]> {
   const dirStat = await stat(dir);
 
   if (!dirStat.isDirectory()) {
@@ -184,23 +193,37 @@ async function getTemplateFiles(dir = templatesDir, base = templatesDir): Promis
   }
 
   const entries = await readdir(dir, { withFileTypes: true });
-  const files = await Promise.all(
-    entries.map(async (entry) => {
-      const absolutePath = path.join(dir, entry.name);
+  const discovered: string[] = [];
 
-      if (entry.isDirectory()) {
-        return getTemplateFiles(absolutePath, base);
+  for (const entry of entries) {
+    const absolutePath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      if (dir === templatesDir && entry.name === "design-systems") {
+        continue;
       }
 
-      if (!entry.isFile()) {
-        return [];
-      }
+      discovered.push(...(await collectInstallableTemplatePaths(absolutePath, base)));
+      continue;
+    }
 
-      return [path.relative(base, absolutePath).split(path.sep).join("/")];
-    }),
-  );
+    if (!entry.isFile()) {
+      continue;
+    }
 
-  return files.flat().sort();
+    discovered.push(path.relative(base, absolutePath).split(path.sep).join("/"));
+  }
+
+  return discovered;
+}
+
+async function getTemplateFiles(): Promise<string[]> {
+  const discovered = await collectInstallableTemplatePaths(templatesDir, templatesDir);
+  const withDesignSystem = discovered.includes("DESIGN-SYSTEM.md")
+    ? discovered
+    : [...discovered, "DESIGN-SYSTEM.md"];
+
+  return withDesignSystem.sort();
 }
 
 function isPresetName(value: string): value is PresetName {
@@ -219,12 +242,39 @@ function isTemplateSetName(value: string): value is TemplateSetName {
   return validTemplateSets.includes(value as TemplateSetName);
 }
 
+function isDesignSystemName(value: string): value is DesignSystemName {
+  return validDesignSystems.includes(value as DesignSystemName);
+}
+
 function formatPresetList(): string {
   return validPresets.join(", ");
 }
 
 function formatTemplateSetList(): string {
   return validTemplateSets.join(", ");
+}
+
+function formatDesignSystemList(): string {
+  return validDesignSystems.join(", ");
+}
+
+function resolveDesignSystem(name: string): DesignSystemName {
+  const normalized = name.toLowerCase();
+
+  if (!isDesignSystemName(normalized)) {
+    throw new Error(`Unknown design system "${name}". Valid design systems: ${formatDesignSystemList()}.`);
+  }
+
+  return normalized;
+}
+
+function effectiveDesignSystem(name: string | undefined): DesignSystemName {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    return "linear";
+  }
+
+  return resolveDesignSystem(trimmed);
 }
 
 function resolvePreset(preset: string | undefined): PresetName | undefined {
@@ -305,6 +355,14 @@ function parseConfig(rawConfig: unknown, configPath: string): AgentKitConfig {
     });
   }
 
+  if (rawConfig.designSystem !== undefined) {
+    if (typeof rawConfig.designSystem !== "string") {
+      throw new Error(`${configFileName} designSystem must be a string.`);
+    }
+
+    config.designSystem = resolveDesignSystem(rawConfig.designSystem);
+  }
+
   if (rawConfig.personalization !== undefined) {
     assertPlainObject(rawConfig.personalization, `${configFileName} personalization`);
     assertKnownKeys(rawConfig.personalization, personalizationKeys, `${configFileName} personalization`);
@@ -366,6 +424,7 @@ async function applyInitConfig(options: InitOptions, config: AgentKitConfig | un
   }
 
   options.preset ??= config.preset;
+  options.designSystem ??= config.designSystem;
   options.personalization ??= config.personalization;
   options.templateSet ??= config.templateSet;
   options.aiTools ??= config.aiTools;
@@ -377,6 +436,7 @@ function applyUpdateConfig(options: UpdateOptions, config: AgentKitConfig | unde
   }
 
   options.preset ??= config.preset;
+  options.designSystem ??= config.designSystem;
 }
 
 export function resolveProjectPreset(projectType: string | undefined): PresetName | undefined {
@@ -468,6 +528,7 @@ function getResolvedConfig(options: InitOptions): AgentKitConfig {
   const config: AgentKitConfig = {
     templateSet: options.templateSet ?? "full",
     aiTools: options.aiTools ?? [],
+    designSystem: effectiveDesignSystem(options.designSystem),
   };
 
   const preset = resolvePreset(options.preset);
@@ -749,8 +810,9 @@ async function buildInitTemplateContent(
   file: string,
   preset: PresetName | undefined,
   personalization: PersonalizationValues | undefined,
+  designSystem: DesignSystemName,
 ): Promise<string> {
-  const content = await buildTemplateContent(file, preset);
+  const content = await buildTemplateContent(file, preset, designSystem);
   return personalizeTemplateContent(file, content, personalization);
 }
 
@@ -766,6 +828,7 @@ async function installTemplates(
       ? getSelectedTemplateFiles(options.templateSet ?? "full", options.aiTools ?? [], allTemplateFiles)
       : allTemplateFiles);
   const preset = resolvePreset(options.preset);
+  const designSystem = effectiveDesignSystem(options.designSystem);
   const created: string[] = [];
   const skipped: string[] = [];
 
@@ -801,13 +864,8 @@ async function installTemplates(
 
     if (!options.dryRun) {
       await mkdir(path.dirname(destination), { recursive: true });
-      if (preset && file === "AGENTS.md") {
-        const content = await buildInitTemplateContent(file, preset, options.personalization);
-        await writeFile(destination, wrapManagedBlock(file, content));
-      } else {
-        const content = await buildInitTemplateContent(file, preset, options.personalization);
-        await writeFile(destination, wrapManagedBlock(file, content));
-      }
+      const content = await buildInitTemplateContent(file, preset, options.personalization, designSystem);
+      await writeFile(destination, wrapManagedBlock(file, content));
     }
   }
 
@@ -851,13 +909,23 @@ function replaceManagedBlock(file: string, existingContent: string, nextContent:
   return `${existingContent.slice(0, startIndex)}${replacement}${existingContent.slice(afterEndIndex)}`;
 }
 
-async function buildTemplateContent(file: string, preset: PresetName | undefined): Promise<string> {
+async function buildTemplateContent(
+  file: string,
+  preset: PresetName | undefined,
+  designSystem: DesignSystemName,
+): Promise<string> {
   if (file === "STACK.md") {
     if (!preset) {
       throw new Error("STACK.md requires a preset.");
     }
 
     return getStackGuidance(preset);
+  }
+
+  if (file === "DESIGN-SYSTEM.md") {
+    const source = path.join(templatesDir, "design-systems", `${designSystem}.md`);
+    const content = await readFile(source, "utf8");
+    return addStackReference(file, content, preset);
   }
 
   const source = path.join(templatesDir, file);
@@ -871,6 +939,7 @@ async function updateTemplates(
 ): Promise<UpdateResult> {
   const targetDir = path.resolve(process.cwd(), targetArg || ".");
   const preset = resolvePreset(options.preset);
+  const designSystem = effectiveDesignSystem(options.designSystem);
   const files = preset ? [...(await getTemplateFiles()), "STACK.md"] : await getTemplateFiles();
   const created: string[] = [];
   const updated: string[] = [];
@@ -880,7 +949,7 @@ async function updateTemplates(
 
   for (const file of files) {
     const destination = path.join(targetDir, file);
-    const nextContent = await buildTemplateContent(file, preset);
+    const nextContent = await buildTemplateContent(file, preset, designSystem);
     const destinationExists = await exists(destination);
 
     if (!destinationExists) {
@@ -1062,6 +1131,20 @@ async function resolveInteractiveTarget(
   options.aiTools = aiToolResponse;
   options.files = getSelectedTemplateFiles(templateSetResponse, aiToolResponse, templateFiles);
 
+  if (templateSetResponse === "standard" || templateSetResponse === "full") {
+    const designSystemResponse = await select<DesignSystemName>({
+      message: "Which design system guidance?",
+      initialValue: effectiveDesignSystem(options.designSystem),
+      options: validDesignSystems.map((value) => ({ label: designSystemLabels[value], value })),
+    });
+
+    if (isCancel(designSystemResponse)) {
+      process.exit(130);
+    }
+
+    options.designSystem = designSystemResponse;
+  }
+
   if (!options.force) {
     const preset = resolvePreset(options.preset);
     const installFiles = preset ? [...options.files, "STACK.md"] : options.files;
@@ -1113,6 +1196,13 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (process.argv.slice(2).includes("--list-design-systems")) {
+    for (const designSystem of validDesignSystems) {
+      console.log(designSystem);
+    }
+    return;
+  }
+
   const program = new Command();
 
   program
@@ -1121,6 +1211,7 @@ async function main(): Promise<void> {
     .version(await readPackageVersion(), "-v, --version")
     .option("--list", "list bundled template files")
     .option("--list-presets", "list available presets")
+    .option("--list-design-systems", "list available design systems")
     .addHelpText(
       "after",
       `
@@ -1131,6 +1222,7 @@ Examples:
   agentkit init --preset next
   agentkit init ./my-project --yes --dry-run
   agentkit --list-presets
+  agentkit --list-design-systems
   agentkit --list`,
     );
 
@@ -1144,6 +1236,10 @@ Examples:
     .option("-y, --yes", "accept defaults for non-interactive runs")
     .option("--write-config", "write resolved install defaults to agentkit.config.json")
     .option("--preset <name>", `install stack-specific guidance (${formatPresetList()})`)
+    .option(
+      "--design-system <name>",
+      `design system guidance for DESIGN-SYSTEM.md (${formatDesignSystemList()})`,
+    )
     .action(async (target: string, options: InitOptions) => {
       await applyInitConfig(options, await loadConfigForTarget(target));
       const resolvedTarget = await resolveInteractiveTarget(target, options);
@@ -1157,6 +1253,10 @@ Examples:
     .argument("[target]", "target project directory", ".")
     .option("--dry-run", "print planned changes without writing files")
     .option("--preset <name>", `update stack-specific guidance (${formatPresetList()})`)
+    .option(
+      "--design-system <name>",
+      `design system guidance for DESIGN-SYSTEM.md (${formatDesignSystemList()})`,
+    )
     .action(async (target: string, options: UpdateOptions) => {
       applyUpdateConfig(options, await loadConfigForTarget(target));
       const result = await updateTemplates(target, options);
