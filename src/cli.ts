@@ -11,7 +11,7 @@ type PresetName = "next" | "sveltekit" | "express" | "convex" | "fullstack";
 type ProjectTypeName = PresetName | "generic";
 type AiToolName = "codex" | "cursor" | "claude" | "copilot";
 type TemplateSetName = "minimal" | "standard" | "full";
-type DesignSystemName = "linear";
+type DesignSystemName = "linear" | "apple";
 
 export type PersonalizationValues = {
   projectName?: string;
@@ -77,10 +77,11 @@ const validPresets: PresetName[] = ["next", "sveltekit", "express", "convex", "f
 const validProjectTypes: ProjectTypeName[] = ["generic", ...validPresets];
 const validAiTools: AiToolName[] = ["codex", "cursor", "claude", "copilot"];
 const validTemplateSets: TemplateSetName[] = ["minimal", "standard", "full"];
-const validDesignSystems: DesignSystemName[] = ["linear"];
+const validDesignSystems: DesignSystemName[] = ["linear", "apple"];
 
 const designSystemLabels: Record<DesignSystemName, string> = {
   linear: "Linear-inspired",
+  apple: "Apple-inspired",
 };
 const configFileName = "agentkit.config.json";
 const configKeys = ["preset", "templateSet", "aiTools", "designSystem", "personalization"];

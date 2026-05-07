@@ -105,7 +105,7 @@ describe("agentkit CLI", () => {
     const result = run(["--list-design-systems"]);
 
     expect(result.status).toBe(0);
-    expect(result.stdout.trim().split("\n")).toEqual(["linear"]);
+    expect(result.stdout.trim().split("\n")).toEqual(["linear", "apple"]);
   });
 
   test("--list does not expose design-system variant source paths", () => {
@@ -123,6 +123,7 @@ describe("agentkit CLI", () => {
       expect(fs.existsSync(path.join(templatesDir, file)), file).toBe(true);
     }
     expect(fs.existsSync(path.join(templatesDir, "design-systems/linear.md"))).toBe(true);
+    expect(fs.existsSync(path.join(templatesDir, "design-systems/apple.md"))).toBe(true);
   });
 
   test("maps project types to presets", () => {
@@ -267,6 +268,14 @@ describe("agentkit CLI", () => {
 
     expect(result.status).toBe(0);
     expect(fs.readFileSync(path.join(target, "DESIGN-SYSTEM.md"), "utf8")).toMatch(/Linear-Inspired/);
+  });
+
+  test("init --yes --design-system apple uses Apple guidance", () => {
+    const target = tempDir();
+    const result = run(["init", target, "--yes", "--design-system", "apple"]);
+
+    expect(result.status).toBe(0);
+    expect(fs.readFileSync(path.join(target, "DESIGN-SYSTEM.md"), "utf8")).toMatch(/Apple-Inspired/);
   });
 
   test("init reads designSystem from config", () => {
@@ -652,7 +661,7 @@ describe("agentkit CLI", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/Unknown design system "figma"/);
-    expect(result.stderr).toMatch(/linear/);
+    expect(result.stderr).toMatch(/linear, apple/);
   });
 
   test("invalid init design system exits non-zero", () => {
@@ -660,7 +669,7 @@ describe("agentkit CLI", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/Unknown design system "figma"/);
-    expect(result.stderr).toMatch(/linear/);
+    expect(result.stderr).toMatch(/linear, apple/);
   });
 
   test("non-string personalization config exits non-zero", () => {
@@ -818,6 +827,25 @@ describe("agentkit CLI", () => {
     expect(body).toMatch(/^preamble\n/);
     expect(body).toMatch(/epilogue\n$/);
     expect(body).toMatch(/Linear-Inspired/);
+    expect(body).not.toMatch(/old body/);
+    expect(result.stdout).toMatch(/Updated: DESIGN-SYSTEM\.md/);
+  });
+
+  test("update --design-system apple refreshes DESIGN-SYSTEM.md managed block", () => {
+    const target = tempDir();
+    const dsPath = path.join(target, "DESIGN-SYSTEM.md");
+    fs.writeFileSync(
+      dsPath,
+      "preamble\n<!-- agentkit:start design-system -->\nold body\n<!-- agentkit:end design-system -->\nepilogue\n",
+    );
+
+    const result = run(["update", target, "--design-system", "apple"]);
+    const body = fs.readFileSync(dsPath, "utf8");
+
+    expect(result.status).toBe(0);
+    expect(body).toMatch(/^preamble\n/);
+    expect(body).toMatch(/epilogue\n$/);
+    expect(body).toMatch(/Apple-Inspired/);
     expect(body).not.toMatch(/old body/);
     expect(result.stdout).toMatch(/Updated: DESIGN-SYSTEM\.md/);
   });

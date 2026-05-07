@@ -133,7 +133,7 @@ AgentKit copies these bundled files into the target project:
 
 When a preset is selected, AgentKit also installs `STACK.md` and adds a note in `AGENTS.md` telling agents to read it before changing stack-specific code.
 
-Bundled design system guidance is stored under `templates/design-systems/` in this repository (for example `linear.md`). The CLI installs the chosen variant into `DESIGN-SYSTEM.md` in the target project; variant paths are not separate install targets.
+Bundled design system guidance is stored under `templates/design-systems/` in this repository (for example `linear.md`, `apple.md`). The CLI installs the chosen variant into `DESIGN-SYSTEM.md` in the target project; variant paths are not separate install targets.
 
 Existing files are skipped by default so local edits are preserved. Use `--force` when you intentionally want to refresh files from the bundled package version.
 
@@ -149,7 +149,7 @@ Generated content
 
 Interactive personalization only applies during `agentkit init` when files are created or overwritten. It does not write a config file, and `agentkit update` does not reapply personalized values.
 
-`agentkit.config.json` can set `preset`, `templateSet`, `designSystem`, `aiTools`, and `personalization` defaults. `templateSet` may be `minimal`, `standard`, or `full`; `designSystem` selects which bundled design-system variant fills `DESIGN-SYSTEM.md` (currently `linear`); `aiTools` may include `codex`, `cursor`, `claude`, and `copilot`. `agentkit update` uses config `preset` and `designSystem` and continues to update all managed bundled templates.
+`agentkit.config.json` can set `preset`, `templateSet`, `designSystem`, `aiTools`, and `personalization` defaults. `templateSet` may be `minimal`, `standard`, or `full`; `designSystem` selects which bundled design-system variant fills `DESIGN-SYSTEM.md` (`linear` or `apple`); `aiTools` may include `codex`, `cursor`, `claude`, and `copilot`. `agentkit update` uses config `preset` and `designSystem` and continues to update all managed bundled templates.
 
 ## Presets
 
@@ -181,7 +181,7 @@ Options:
 - `-y, --yes`: accept defaults without prompts
 - `--write-config`: write resolved install defaults to `agentkit.config.json`
 - `--preset <name>`: install stack-specific guidance (`next`, `sveltekit`, `express`, `convex`, `fullstack`)
-- `--design-system <name>`: design system variant for `DESIGN-SYSTEM.md` (`linear`)
+- `--design-system <name>`: design system variant for `DESIGN-SYSTEM.md` (`linear`, `apple`)
 - `--list`: list bundled template files
 - `--list-presets`: list available presets
 - `--list-design-systems`: list available design systems
