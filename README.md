@@ -72,6 +72,7 @@ Standardize install defaults with `agentkit.config.json`:
 {
   "preset": "next",
   "templateSet": "standard",
+  "designSystem": "linear",
   "aiTools": ["codex", "cursor", "claude"],
   "personalization": {
     "projectName": "Acme CRM",
@@ -109,6 +110,12 @@ List available presets:
 npx thomas-agentkit --list-presets
 ```
 
+List bundled design systems (source variants for `DESIGN-SYSTEM.md`):
+
+```bash
+npx thomas-agentkit --list-design-systems
+```
+
 ## Installed Files
 
 AgentKit copies these bundled files into the target project:
@@ -126,6 +133,8 @@ AgentKit copies these bundled files into the target project:
 
 When a preset is selected, AgentKit also installs `STACK.md` and adds a note in `AGENTS.md` telling agents to read it before changing stack-specific code.
 
+Bundled design system guidance is stored under `templates/design-systems/` in this repository (for example `linear.md`). The CLI installs the chosen variant into `DESIGN-SYSTEM.md` in the target project; variant paths are not separate install targets.
+
 Existing files are skipped by default so local edits are preserved. Use `--force` when you intentionally want to refresh files from the bundled package version.
 
 New installs wrap generated template content in AgentKit managed block markers:
@@ -140,7 +149,7 @@ Generated content
 
 Interactive personalization only applies during `agentkit init` when files are created or overwritten. It does not write a config file, and `agentkit update` does not reapply personalized values.
 
-`agentkit.config.json` can set `preset`, `templateSet`, `aiTools`, and `personalization` defaults. `templateSet` may be `minimal`, `standard`, or `full`; `aiTools` may include `codex`, `cursor`, `claude`, and `copilot`. `agentkit update` only uses config `preset` and continues to update all managed bundled templates.
+`agentkit.config.json` can set `preset`, `templateSet`, `designSystem`, `aiTools`, and `personalization` defaults. `templateSet` may be `minimal`, `standard`, or `full`; `designSystem` selects which bundled design-system variant fills `DESIGN-SYSTEM.md` (currently `linear`); `aiTools` may include `codex`, `cursor`, `claude`, and `copilot`. `agentkit update` uses config `preset` and `designSystem` and continues to update all managed bundled templates.
 
 ## Presets
 
@@ -155,10 +164,11 @@ Presets add stack-specific guidance without scaffolding framework app files.
 ## CLI Reference
 
 ```text
-agentkit init [target] [--force] [--dry-run] [--interactive] [--yes] [--write-config] [--preset <name>]
-agentkit update [target] [--dry-run] [--preset <name>]
+agentkit init [target] [--force] [--dry-run] [--interactive] [--yes] [--write-config] [--preset <name>] [--design-system <name>]
+agentkit update [target] [--dry-run] [--preset <name>] [--design-system <name>]
 agentkit --list
 agentkit --list-presets
+agentkit --list-design-systems
 agentkit --help
 agentkit --version
 ```
@@ -171,12 +181,14 @@ Options:
 - `-y, --yes`: accept defaults without prompts
 - `--write-config`: write resolved install defaults to `agentkit.config.json`
 - `--preset <name>`: install stack-specific guidance (`next`, `sveltekit`, `express`, `convex`, `fullstack`)
+- `--design-system <name>`: design system variant for `DESIGN-SYSTEM.md` (`linear`)
 - `--list`: list bundled template files
 - `--list-presets`: list available presets
+- `--list-design-systems`: list available design systems
 - `-h, --help`: show help
 - `-v, --version`: show package version
 
-For `agentkit update`, `--preset <name>` refreshes preset-specific managed content, including `STACK.md`.
+For `agentkit update`, `--preset <name>` refreshes preset-specific managed content, including `STACK.md`. `--design-system <name>` refreshes the managed `DESIGN-SYSTEM.md` body from the matching bundled variant.
 
 ## Local Development
 

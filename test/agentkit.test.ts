@@ -101,10 +101,28 @@ describe("agentkit CLI", () => {
     ]);
   });
 
+  test("--list-design-systems prints available design system names", () => {
+    const result = run(["--list-design-systems"]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim().split("\n")).toEqual(["linear"]);
+  });
+
+  test("--list does not expose design-system variant source paths", () => {
+    const result = run(["--list"]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).not.toMatch(/design-systems\//);
+  });
+
   test("required templates exist", () => {
     for (const file of expectedTemplates) {
+      if (file === "DESIGN-SYSTEM.md") {
+        continue;
+      }
       expect(fs.existsSync(path.join(templatesDir, file)), file).toBe(true);
     }
+    expect(fs.existsSync(path.join(templatesDir, "design-systems/linear.md"))).toBe(true);
   });
 
   test("maps project types to presets", () => {
@@ -183,7 +201,7 @@ describe("agentkit CLI", () => {
   });
 
   test("personalizes design system project name only", () => {
-    const content = fs.readFileSync(path.join(templatesDir, "DESIGN-SYSTEM.md"), "utf8");
+    const content = fs.readFileSync(path.join(templatesDir, "design-systems/linear.md"), "utf8");
     const personalized = personalizeTemplateContent("DESIGN-SYSTEM.md", content, {
       projectName: "Acme CRM",
       designSystemPath: "docs/ui.md",
@@ -239,7 +257,29 @@ describe("agentkit CLI", () => {
       /<!-- agentkit:start agents -->/,
     );
     expect(fs.readFileSync(path.join(target, "AGENTS.md"), "utf8")).toMatch(/\[Project Name\]/);
+    expect(fs.readFileSync(path.join(target, "DESIGN-SYSTEM.md"), "utf8")).toMatch(/Linear-Inspired/);
     expect(fs.existsSync(path.join(target, "STACK.md"))).toBe(false);
+  });
+
+  test("init --yes --design-system linear matches default design guidance", () => {
+    const target = tempDir();
+    const result = run(["init", target, "--yes", "--design-system", "linear"]);
+
+    expect(result.status).toBe(0);
+    expect(fs.readFileSync(path.join(target, "DESIGN-SYSTEM.md"), "utf8")).toMatch(/Linear-Inspired/);
+  });
+
+  test("init reads designSystem from config", () => {
+    const target = tempDir();
+    writeConfig(target, {
+      templateSet: "standard",
+      designSystem: "linear",
+    });
+
+    const result = run(["init", target, "--yes"]);
+
+    expect(result.status).toBe(0);
+    expect(fs.readFileSync(path.join(target, "DESIGN-SYSTEM.md"), "utf8")).toMatch(/Linear-Inspired/);
   });
 
   test("init --preset next creates stack guidance and references it from AGENTS.md", () => {
@@ -374,6 +414,7 @@ describe("agentkit CLI", () => {
     expect(config).toEqual({
       templateSet: "full",
       aiTools: [],
+      designSystem: "linear",
     });
     expect(result.stdout).toMatch(/Created: .*agentkit\.config\.json/);
   });
@@ -388,6 +429,7 @@ describe("agentkit CLI", () => {
       templateSet: "full",
       aiTools: [],
       preset: "next",
+      designSystem: "linear",
     });
     expect(fs.readFileSync(path.join(target, "STACK.md"), "utf8")).toMatch(/Next\.js/);
   });
@@ -412,6 +454,7 @@ describe("agentkit CLI", () => {
       templateSet: "minimal",
       aiTools: ["claude"],
       preset: "express",
+      designSystem: "linear",
       personalization: {
         projectName: "Config App",
       },
@@ -448,6 +491,7 @@ describe("agentkit CLI", () => {
       templateSet: "full",
       aiTools: [],
       preset: "next",
+      designSystem: "linear",
     });
   });
 
@@ -598,6 +642,27 @@ describe("agentkit CLI", () => {
     expect(result.stderr).toMatch(/Unknown AI tool "windsurf"/);
   });
 
+  test("invalid config design system exits non-zero", () => {
+    const target = tempDir();
+    writeConfig(target, {
+      designSystem: "figma",
+    });
+
+    const result = run(["init", target, "--yes"]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/Unknown design system "figma"/);
+    expect(result.stderr).toMatch(/linear/);
+  });
+
+  test("invalid init design system exits non-zero", () => {
+    const result = run(["init", tempDir(), "--yes", "--design-system", "figma"]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/Unknown design system "figma"/);
+    expect(result.stderr).toMatch(/linear/);
+  });
+
   test("non-string personalization config exits non-zero", () => {
     const target = tempDir();
     writeConfig(target, {
@@ -736,6 +801,42 @@ describe("agentkit CLI", () => {
     expect(agents).toMatch(/Preset: Next\.js/);
     expect(agents).toMatch(/# \[Project Name\] Agent Guide/);
     expect(agents).not.toMatch(/Ignored Update Name/);
+  });
+
+  test("update --design-system linear refreshes DESIGN-SYSTEM.md managed block", () => {
+    const target = tempDir();
+    const dsPath = path.join(target, "DESIGN-SYSTEM.md");
+    fs.writeFileSync(
+      dsPath,
+      "preamble\n<!-- agentkit:start design-system -->\nold body\n<!-- agentkit:end design-system -->\nepilogue\n",
+    );
+
+    const result = run(["update", target, "--design-system", "linear"]);
+    const body = fs.readFileSync(dsPath, "utf8");
+
+    expect(result.status).toBe(0);
+    expect(body).toMatch(/^preamble\n/);
+    expect(body).toMatch(/epilogue\n$/);
+    expect(body).toMatch(/Linear-Inspired/);
+    expect(body).not.toMatch(/old body/);
+    expect(result.stdout).toMatch(/Updated: DESIGN-SYSTEM\.md/);
+  });
+
+  test("update reads designSystem from config", () => {
+    const target = tempDir();
+    writeConfig(target, { designSystem: "linear" });
+    const dsPath = path.join(target, "DESIGN-SYSTEM.md");
+    fs.writeFileSync(
+      dsPath,
+      "<!-- agentkit:start design-system -->\n__STALE_DESIGN_SYSTEM_BODY__\n<!-- agentkit:end design-system -->\n",
+    );
+
+    const result = run(["update", target]);
+    const body = fs.readFileSync(dsPath, "utf8");
+
+    expect(result.status).toBe(0);
+    expect(body).toMatch(/Linear-Inspired/);
+    expect(body).not.toContain("__STALE_DESIGN_SYSTEM_BODY__");
   });
 
   test("update does not create or modify config", () => {
