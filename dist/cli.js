@@ -14,9 +14,10 @@ const validPresets = ["next", "sveltekit", "express", "convex", "fullstack"];
 const validProjectTypes = ["generic", ...validPresets];
 const validAiTools = ["codex", "cursor", "claude", "copilot"];
 const validTemplateSets = ["minimal", "standard", "full"];
-const validDesignSystems = ["linear"];
+const validDesignSystems = ["linear", "apple"];
 const designSystemLabels = {
     linear: "Linear-inspired",
+    apple: "Apple-inspired",
 };
 const configFileName = "agentkit.config.json";
 const configKeys = ["preset", "templateSet", "aiTools", "designSystem", "personalization"];
