@@ -14,7 +14,7 @@ Install templates into the current directory:
 npx thomas-agentkit init
 ```
 
-By default, `init` opens a short interactive setup flow in terminals. After choosing install options, you can optionally personalize repository-level template placeholders such as project name, description, issue tracker, docs paths, stack summary, and project commands.
+By default, `init` opens a short interactive setup flow in terminals. It asks where to install files, what project type or preset to use, which AI tools you use, which template set to install, how to handle existing files, and whether to personalize repository-level placeholders such as project name, description, issue tracker, docs paths, stack summary, and project commands.
 
 Install into another directory:
 
@@ -98,6 +98,8 @@ npx thomas-agentkit init --write-config
 
 `--write-config` writes `agentkit.config.json` in the target directory. Existing config files are skipped by default; use `--force` to overwrite one intentionally.
 
+Config values are validated when loaded. Unknown config keys, invalid preset/template/design-system names, invalid AI tool names, and non-string personalization values exit with an error.
+
 List bundled templates:
 
 ```bash
@@ -145,11 +147,24 @@ Generated content
 <!-- agentkit:end agents -->
 ```
 
-`agentkit update` only replaces content inside matching managed blocks. User edits before or after those blocks are preserved. Existing legacy files without managed blocks are reported as unmanaged and left untouched.
+`agentkit update` creates missing managed files. For existing files, it only replaces content inside matching managed blocks. User edits before or after those blocks are preserved. Existing legacy files without managed blocks are reported as unmanaged and left untouched. Files with malformed managed block markers are skipped.
 
-Interactive personalization only applies during `agentkit init` when files are created or overwritten. It does not write a config file, and `agentkit update` does not reapply personalized values.
+Interactive personalization only applies during `agentkit init` when files are created or overwritten. It does not write a config file unless `--write-config` is passed, and `agentkit update` does not reapply personalized values.
 
 `agentkit.config.json` can set `preset`, `templateSet`, `designSystem`, `aiTools`, and `personalization` defaults. `templateSet` may be `minimal`, `standard`, or `full`; `designSystem` selects which bundled design-system variant fills `DESIGN-SYSTEM.md` (`linear` or `apple`); `aiTools` may include `codex`, `cursor`, `claude`, and `copilot`. `agentkit update` uses config `preset` and `designSystem` and continues to update all managed bundled templates.
+
+Template set mappings:
+
+- `minimal`: `AGENTS.md`
+- `standard`: `AGENTS.md`, `CODE-QUALITY.md`, `DESIGN-SYSTEM.md`, `WORKFLOWS.md`
+- `full`: all bundled templates
+
+AI tool mappings:
+
+- `codex`: `AGENTS.md`
+- `cursor`: `.cursor/rules/agentkit.md`
+- `claude`: `CLAUDE.md`
+- `copilot`: `.github/copilot-instructions.md`
 
 ## Presets
 
