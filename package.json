@@ -1,6 +1,6 @@
 {
   "name": "thomas-agentkit",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Install AI-agent-ready development templates into a project.",
   "license": "MIT",
   "repository": {
