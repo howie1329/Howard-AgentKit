@@ -212,49 +212,68 @@ function assertKnownKeys(value, validKeys, name) {
         }
     }
 }
+function optionalConfigString(rawConfig, key) {
+    const value = rawConfig[key];
+    if (value === undefined) {
+        return undefined;
+    }
+    if (typeof value !== "string") {
+        throw new Error(`${configFileName} ${key} must be a string.`);
+    }
+    return value;
+}
+function readConfigAiTools(value) {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (!Array.isArray(value)) {
+        throw new Error(`${configFileName} aiTools must be an array.`);
+    }
+    return value.map((aiTool) => {
+        if (typeof aiTool !== "string" || !isAiToolName(aiTool)) {
+            throw new Error(`Unknown AI tool "${String(aiTool)}". Valid AI tools: ${validAiTools.join(", ")}.`);
+        }
+        return aiTool;
+    });
+}
+function readConfigPersonalization(value) {
+    if (value === undefined) {
+        return undefined;
+    }
+    assertPlainObject(value, `${configFileName} personalization`);
+    assertKnownKeys(value, personalizationKeys, `${configFileName} personalization`);
+    const personalization = {};
+    for (const [key, entry] of Object.entries(value)) {
+        if (typeof entry !== "string") {
+            throw new Error(`${configFileName} personalization.${key} must be a string.`);
+        }
+        personalization[key] = entry;
+    }
+    return personalization;
+}
 function parseConfig(rawConfig, configPath) {
     assertPlainObject(rawConfig, configFileName);
     assertKnownKeys(rawConfig, configKeys, configFileName);
+    const preset = optionalConfigString(rawConfig, "preset");
+    const templateSet = optionalConfigString(rawConfig, "templateSet");
+    const designSystem = optionalConfigString(rawConfig, "designSystem");
     const config = {};
-    if (rawConfig.preset !== undefined) {
-        if (typeof rawConfig.preset !== "string") {
-            throw new Error(`${configFileName} preset must be a string.`);
-        }
-        config.preset = resolvePreset(rawConfig.preset);
+    if (preset !== undefined) {
+        config.preset = resolvePreset(preset);
     }
-    if (rawConfig.templateSet !== undefined) {
-        if (typeof rawConfig.templateSet !== "string") {
-            throw new Error(`${configFileName} templateSet must be a string.`);
-        }
-        config.templateSet = resolveTemplateSet(rawConfig.templateSet);
+    if (templateSet !== undefined) {
+        config.templateSet = resolveTemplateSet(templateSet);
     }
-    if (rawConfig.aiTools !== undefined) {
-        if (!Array.isArray(rawConfig.aiTools)) {
-            throw new Error(`${configFileName} aiTools must be an array.`);
-        }
-        config.aiTools = rawConfig.aiTools.map((aiTool) => {
-            if (typeof aiTool !== "string" || !isAiToolName(aiTool)) {
-                throw new Error(`Unknown AI tool "${String(aiTool)}". Valid AI tools: ${validAiTools.join(", ")}.`);
-            }
-            return aiTool;
-        });
+    const aiTools = readConfigAiTools(rawConfig.aiTools);
+    if (aiTools !== undefined) {
+        config.aiTools = aiTools;
     }
-    if (rawConfig.designSystem !== undefined) {
-        if (typeof rawConfig.designSystem !== "string") {
-            throw new Error(`${configFileName} designSystem must be a string.`);
-        }
-        config.designSystem = resolveDesignSystem(rawConfig.designSystem);
+    if (designSystem !== undefined) {
+        config.designSystem = resolveDesignSystem(designSystem);
     }
-    if (rawConfig.personalization !== undefined) {
-        assertPlainObject(rawConfig.personalization, `${configFileName} personalization`);
-        assertKnownKeys(rawConfig.personalization, personalizationKeys, `${configFileName} personalization`);
-        config.personalization = {};
-        for (const [key, value] of Object.entries(rawConfig.personalization)) {
-            if (typeof value !== "string") {
-                throw new Error(`${configFileName} personalization.${key} must be a string.`);
-            }
-            config.personalization[key] = value;
-        }
+    const personalization = readConfigPersonalization(rawConfig.personalization);
+    if (personalization !== undefined) {
+        config.personalization = personalization;
     }
     if (config.preset === undefined && rawConfig.preset !== undefined) {
         throw new Error(`Invalid preset in ${configPath}.`);
@@ -495,161 +514,84 @@ export function shouldPromptForInit(options, streams) {
     }
     return Boolean(streams.stdin?.isTTY || streams.stdout?.isTTY);
 }
-async function promptForPersonalization(defaults) {
-    const shouldPersonalize = await confirm({
-        message: "Personalize template placeholders?",
-        initialValue: Boolean(defaults),
-    });
-    if (isCancel(shouldPersonalize)) {
+function resolvePrompt(value) {
+    if (isCancel(value)) {
         process.exit(130);
     }
+    return value;
+}
+async function promptForTextValue(message, placeholder, defaultValue) {
+    return resolvePrompt(await text({ message, placeholder, defaultValue }));
+}
+async function promptForPersonalization(defaults) {
+    const shouldPersonalize = resolvePrompt(await confirm({
+        message: "Personalize template placeholders?",
+        initialValue: Boolean(defaults),
+    }));
     if (!shouldPersonalize) {
         return undefined;
     }
-    const projectName = await text({
-        message: "Project name",
-        placeholder: "[Project Name]",
-        defaultValue: defaults?.projectName,
-    });
-    if (isCancel(projectName)) {
-        process.exit(130);
-    }
-    const projectDescription = await text({
-        message: "Short project description",
-        placeholder: "[short project description]",
-        defaultValue: defaults?.projectDescription,
-    });
-    if (isCancel(projectDescription)) {
-        process.exit(130);
-    }
-    const issueTracker = await text({
-        message: "Issue tracker name",
-        placeholder: "Linear or GitHub Issues",
-        defaultValue: defaults?.issueTracker,
-    });
-    if (isCancel(issueTracker)) {
-        process.exit(130);
-    }
-    const designSystemPath = await text({
-        message: "Design system path",
-        placeholder: "docs/design-system.md",
-        defaultValue: defaults?.designSystemPath,
-    });
-    if (isCancel(designSystemPath)) {
-        process.exit(130);
-    }
-    const briefsPath = await text({
-        message: "Briefs path",
-        placeholder: "docs/briefs",
-        defaultValue: defaults?.briefsPath,
-    });
-    if (isCancel(briefsPath)) {
-        process.exit(130);
-    }
-    const testCommand = await text({
-        message: "Test command",
-        placeholder: "npm test",
-        defaultValue: defaults?.testCommand,
-    });
-    if (isCancel(testCommand)) {
-        process.exit(130);
-    }
-    const lintCommand = await text({
-        message: "Lint command",
-        placeholder: "npm run lint",
-        defaultValue: defaults?.lintCommand,
-    });
-    if (isCancel(lintCommand)) {
-        process.exit(130);
-    }
-    const buildCommand = await text({
-        message: "Build/check command",
-        placeholder: "npm run build",
-        defaultValue: defaults?.buildCommand,
-    });
-    if (isCancel(buildCommand)) {
-        process.exit(130);
-    }
-    const stackSummary = await text({
-        message: "Stack summary",
-        placeholder: "Next.js, TypeScript, Tailwind CSS, Vitest",
-        defaultValue: defaults?.stackSummary,
-    });
-    if (isCancel(stackSummary)) {
-        process.exit(130);
-    }
     return {
-        projectName,
-        projectDescription,
-        issueTracker,
-        designSystemPath,
-        briefsPath,
-        testCommand,
-        lintCommand,
-        buildCommand,
-        stackSummary,
+        projectName: await promptForTextValue("Project name", "[Project Name]", defaults?.projectName),
+        projectDescription: await promptForTextValue("Short project description", "[short project description]", defaults?.projectDescription),
+        issueTracker: await promptForTextValue("Issue tracker name", "Linear or GitHub Issues", defaults?.issueTracker),
+        designSystemPath: await promptForTextValue("Design system path", "docs/design-system.md", defaults?.designSystemPath),
+        briefsPath: await promptForTextValue("Briefs path", "docs/briefs", defaults?.briefsPath),
+        testCommand: await promptForTextValue("Test command", "npm test", defaults?.testCommand),
+        lintCommand: await promptForTextValue("Lint command", "npm run lint", defaults?.lintCommand),
+        buildCommand: await promptForTextValue("Build/check command", "npm run build", defaults?.buildCommand),
+        stackSummary: await promptForTextValue("Stack summary", "Next.js, TypeScript, Tailwind CSS, Vitest", defaults?.stackSummary),
     };
 }
 async function buildInitTemplateContent(file, preset, personalization, designSystem) {
     const content = await buildTemplateContent(file, preset, designSystem);
     return personalizeTemplateContent(file, content, personalization);
 }
+async function installFileIfAllowed(targetDir, file, options, result, getContent) {
+    const destination = path.join(targetDir, file);
+    if ((await exists(destination)) && !options.force) {
+        result.skipped.push(file);
+        return;
+    }
+    result.created.push(file);
+    if (options.dryRun) {
+        return;
+    }
+    await mkdir(path.dirname(destination), { recursive: true });
+    await writeFile(destination, await getContent());
+}
+async function resolveInitTemplateFiles(options) {
+    const allTemplateFiles = await getTemplateFiles();
+    if (options.files) {
+        return options.files;
+    }
+    if (options.templateSet || options.aiTools) {
+        return getSelectedTemplateFiles(options.templateSet ?? "full", options.aiTools ?? [], allTemplateFiles);
+    }
+    return allTemplateFiles;
+}
 async function installTemplates(targetArg, options) {
     const targetDir = path.resolve(process.cwd(), targetArg || ".");
-    const allTemplateFiles = await getTemplateFiles();
-    const files = options.files ??
-        (options.templateSet || options.aiTools
-            ? getSelectedTemplateFiles(options.templateSet ?? "full", options.aiTools ?? [], allTemplateFiles)
-            : allTemplateFiles);
+    const files = await resolveInitTemplateFiles(options);
     const preset = resolvePreset(options.preset);
     const designSystem = effectiveDesignSystem(options.designSystem);
-    const created = [];
-    const skipped = [];
+    const result = { targetDir, created: [], skipped: [] };
     if (!options.dryRun) {
         await mkdir(targetDir, { recursive: true });
     }
     if (options.writeConfig) {
-        const destination = path.join(targetDir, configFileName);
-        const destinationExists = await exists(destination);
-        if (destinationExists && !options.force) {
-            skipped.push(configFileName);
-        }
-        else {
-            created.push(configFileName);
-            if (!options.dryRun) {
-                await writeFile(destination, serializeConfig(getResolvedConfig(options)));
-            }
-        }
+        await installFileIfAllowed(targetDir, configFileName, options, result, () => serializeConfig(getResolvedConfig(options)));
     }
     for (const file of files) {
-        const destination = path.join(targetDir, file);
-        const destinationExists = await exists(destination);
-        if (destinationExists && !options.force) {
-            skipped.push(file);
-            continue;
-        }
-        created.push(file);
-        if (!options.dryRun) {
-            await mkdir(path.dirname(destination), { recursive: true });
+        await installFileIfAllowed(targetDir, file, options, result, async () => {
             const content = await buildInitTemplateContent(file, preset, options.personalization, designSystem);
-            await writeFile(destination, wrapManagedBlock(file, content));
-        }
+            return wrapManagedBlock(file, content);
+        });
     }
     if (preset) {
-        const stackFile = "STACK.md";
-        const destination = path.join(targetDir, stackFile);
-        const destinationExists = await exists(destination);
-        if (destinationExists && !options.force) {
-            skipped.push(stackFile);
-        }
-        else {
-            created.push(stackFile);
-            if (!options.dryRun) {
-                await writeFile(destination, wrapManagedBlock(stackFile, getStackGuidance(preset)));
-            }
-        }
+        await installFileIfAllowed(targetDir, "STACK.md", options, result, () => wrapManagedBlock("STACK.md", getStackGuidance(preset)));
     }
-    return { targetDir, created, skipped };
+    return result;
 }
 function replaceManagedBlock(file, existingContent, nextContent) {
     const id = getTemplateId(file);
@@ -770,110 +712,113 @@ function printUpdateResult(result, dryRun = false) {
         console.log("All managed AgentKit files are current.");
     }
 }
-async function resolveInteractiveTarget(target, options) {
-    const providedPreset = resolvePreset(options.preset);
-    const shouldPrompt = shouldPromptForInit(options, process);
-    if (!shouldPrompt) {
+async function promptForTarget(target) {
+    if (target && target !== ".") {
         return target;
     }
-    intro("Welcome to AgentKit");
-    let resolvedTarget = target;
-    if (!target || target === ".") {
-        const targetResponse = await text({
-            message: "Where should AgentKit install files?",
-            placeholder: ".",
-            defaultValue: ".",
-        });
-        if (isCancel(targetResponse)) {
-            process.exit(130);
-        }
-        resolvedTarget = targetResponse || ".";
-    }
-    if (!providedPreset) {
-        const projectTypeResponse = await select({
-            message: "What type of project is this?",
-            initialValue: "generic",
-            options: [
-                { label: "Generic TypeScript project", value: "generic" },
-                { label: "Next.js app", value: "next" },
-                { label: "SvelteKit app", value: "sveltekit" },
-                { label: "Express API", value: "express" },
-                { label: "Convex app", value: "convex" },
-                { label: "Fullstack app", value: "fullstack" },
-            ],
-        });
-        if (isCancel(projectTypeResponse)) {
-            process.exit(130);
-        }
-        options.preset = resolveProjectPreset(projectTypeResponse);
-    }
-    const aiToolResponse = await multiselect({
+    return (resolvePrompt(await text({
+        message: "Where should AgentKit install files?",
+        placeholder: ".",
+        defaultValue: ".",
+    })) || ".");
+}
+async function promptForProjectPreset() {
+    const projectType = resolvePrompt(await select({
+        message: "What type of project is this?",
+        initialValue: "generic",
+        options: [
+            { label: "Generic TypeScript project", value: "generic" },
+            { label: "Next.js app", value: "next" },
+            { label: "SvelteKit app", value: "sveltekit" },
+            { label: "Express API", value: "express" },
+            { label: "Convex app", value: "convex" },
+            { label: "Fullstack app", value: "fullstack" },
+        ],
+    }));
+    return resolveProjectPreset(projectType);
+}
+async function promptForAiTools(defaults) {
+    return resolvePrompt(await multiselect({
         message: "Which AI tools do you use?",
-        initialValues: options.aiTools ?? ["codex", "cursor", "claude"],
+        initialValues: defaults ?? ["codex", "cursor", "claude"],
         options: [
             { label: "Codex", value: "codex" },
             { label: "Cursor", value: "cursor" },
             { label: "Claude Code", value: "claude" },
             { label: "GitHub Copilot", value: "copilot" },
         ],
-    });
-    if (isCancel(aiToolResponse)) {
-        process.exit(130);
-    }
-    const templateSetResponse = await select({
+    }));
+}
+async function promptForTemplateSet(defaultValue) {
+    return resolvePrompt(await select({
         message: "Which template set do you want?",
-        initialValue: options.templateSet ?? "standard",
+        initialValue: defaultValue ?? "standard",
         options: [
             { label: "Minimal", value: "minimal" },
             { label: "Standard", value: "standard" },
             { label: "Full", value: "full" },
         ],
-    });
-    if (isCancel(templateSetResponse)) {
-        process.exit(130);
-    }
-    const templateFiles = await getTemplateFiles();
-    options.templateSet = templateSetResponse;
-    options.aiTools = aiToolResponse;
-    options.files = getSelectedTemplateFiles(templateSetResponse, aiToolResponse, templateFiles);
-    if (templateSetResponse === "standard" || templateSetResponse === "full") {
-        const designSystemResponse = await select({
-            message: "Which design system guidance?",
-            initialValue: effectiveDesignSystem(options.designSystem),
-            options: validDesignSystems.map((value) => ({ label: designSystemLabels[value], value })),
-        });
-        if (isCancel(designSystemResponse)) {
-            process.exit(130);
+    }));
+}
+async function promptForDesignSystem(defaultValue) {
+    return resolvePrompt(await select({
+        message: "Which design system guidance?",
+        initialValue: effectiveDesignSystem(defaultValue),
+        options: validDesignSystems.map((value) => ({ label: designSystemLabels[value], value })),
+    }));
+}
+async function findExistingInstallFiles(target, files) {
+    const targetDir = path.resolve(process.cwd(), target || ".");
+    const existingFiles = [];
+    for (const file of files) {
+        if (await exists(path.join(targetDir, file))) {
+            existingFiles.push(file);
         }
-        options.designSystem = designSystemResponse;
+    }
+    return existingFiles;
+}
+async function promptForConflictStrategy(existingFiles) {
+    return resolvePrompt(await select({
+        message: `Existing files found: ${existingFiles.join(", ")}. How should AgentKit handle conflicts?`,
+        initialValue: "skip",
+        options: [
+            { label: "Skip existing files", value: "skip" },
+            { label: "Overwrite existing files", value: "overwrite" },
+        ],
+    }));
+}
+async function applyInteractiveSelections(resolvedTarget, providedPreset, options) {
+    if (!providedPreset) {
+        options.preset = await promptForProjectPreset();
+    }
+    const aiTools = await promptForAiTools(options.aiTools);
+    const templateSet = await promptForTemplateSet(options.templateSet);
+    const templateFiles = await getTemplateFiles();
+    options.templateSet = templateSet;
+    options.aiTools = aiTools;
+    options.files = getSelectedTemplateFiles(templateSet, aiTools, templateFiles);
+    if (templateSet === "standard" || templateSet === "full") {
+        options.designSystem = await promptForDesignSystem(options.designSystem);
     }
     if (!options.force) {
         const preset = resolvePreset(options.preset);
         const installFiles = preset ? [...options.files, "STACK.md"] : options.files;
-        const targetDir = path.resolve(process.cwd(), resolvedTarget || ".");
-        const existingFiles = [];
-        for (const file of installFiles) {
-            if (await exists(path.join(targetDir, file))) {
-                existingFiles.push(file);
-            }
-        }
+        const existingFiles = await findExistingInstallFiles(resolvedTarget, installFiles);
         if (existingFiles.length > 0) {
-            const conflictResponse = await select({
-                message: `Existing files found: ${existingFiles.join(", ")}. How should AgentKit handle conflicts?`,
-                initialValue: "skip",
-                options: [
-                    { label: "Skip existing files", value: "skip" },
-                    { label: "Overwrite existing files", value: "overwrite" },
-                ],
-            });
-            if (isCancel(conflictResponse)) {
-                process.exit(130);
-            }
-            options.force = conflictResponse === "overwrite";
+            options.force = (await promptForConflictStrategy(existingFiles)) === "overwrite";
         }
     }
+}
+async function resolveInteractiveTarget(target, options) {
+    const providedPreset = resolvePreset(options.preset);
+    if (!shouldPromptForInit(options, process)) {
+        return target;
+    }
+    intro("Welcome to AgentKit");
+    const resolvedTarget = await promptForTarget(target);
+    await applyInteractiveSelections(resolvedTarget, providedPreset, options);
     options.personalization = await promptForPersonalization(options.personalization);
-    return resolvedTarget || ".";
+    return resolvedTarget;
 }
 async function main() {
     if (process.argv.slice(2).includes("--list")) {
