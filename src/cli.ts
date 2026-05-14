@@ -2,7 +2,7 @@
 
 import { confirm, intro, isCancel, multiselect, select, text } from "@clack/prompts";
 import { Command } from "commander";
-import { constants as fsConstants } from "node:fs";
+import { constants as fsConstants, realpathSync } from "node:fs";
 import { access, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,6 +37,11 @@ type InitOptions = {
   templateSet?: TemplateSetName;
   aiTools?: AiToolName[];
   personalization?: PersonalizationValues;
+};
+
+type PromptStreams = {
+  stdin?: { isTTY?: boolean };
+  stdout?: { isTTY?: boolean };
 };
 
 type InstallResult = {
@@ -690,6 +695,22 @@ export function personalizeTemplateContent(
   return personalized;
 }
 
+export function shouldPromptForInit(options: InitOptions, streams: PromptStreams): boolean {
+  if (options.yes) {
+    return false;
+  }
+
+  if (options.interactive) {
+    return true;
+  }
+
+  if (options.dryRun) {
+    return false;
+  }
+
+  return Boolean(streams.stdin?.isTTY || streams.stdout?.isTTY);
+}
+
 async function promptForPersonalization(defaults: PersonalizationValues | undefined): Promise<PersonalizationValues | undefined> {
   const shouldPersonalize = await confirm({
     message: "Personalize template placeholders?",
@@ -1053,7 +1074,7 @@ async function resolveInteractiveTarget(
   options: InitOptions,
 ): Promise<string | undefined> {
   const providedPreset = resolvePreset(options.preset);
-  const shouldPrompt = !options.yes && (options.interactive || process.stdin.isTTY);
+  const shouldPrompt = shouldPromptForInit(options, process);
 
   if (!shouldPrompt) {
     return target;
@@ -1267,7 +1288,19 @@ Examples:
   await program.parseAsync(process.argv);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+function resolveCliPath(filePath: string): string {
+  try {
+    return realpathSync(filePath);
+  } catch {
+    return path.resolve(filePath);
+  }
+}
+
+function isDirectCliInvocation(argvPath: string | undefined): boolean {
+  return Boolean(argvPath && resolveCliPath(argvPath) === resolveCliPath(__filename));
+}
+
+if (isDirectCliInvocation(process.argv[1])) {
   main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     console.error(message);

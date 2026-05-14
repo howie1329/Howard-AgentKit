@@ -9,6 +9,7 @@ import {
   getSelectedTemplateFiles,
   personalizeTemplateContent,
   resolveProjectPreset,
+  shouldPromptForInit,
 } from "../src/cli.js";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -37,6 +38,17 @@ const expectedTemplates = [
 
 function run(args: string[], options: { cwd?: string } = {}) {
   return spawnSync(process.execPath, [cli, ...args], {
+    cwd: options.cwd || root,
+    encoding: "utf8",
+  });
+}
+
+function runViaSymlink(args: string[], options: { cwd?: string } = {}) {
+  const target = tempDir();
+  const symlinkPath = path.join(target, "agentkit");
+  fs.symlinkSync(cli, symlinkPath);
+
+  return spawnSync(process.execPath, [symlinkPath, ...args], {
     cwd: options.cwd || root,
     encoding: "utf8",
   });
@@ -72,6 +84,22 @@ describe("agentkit CLI", () => {
     expect(result.stdout).toMatch(/Usage:/);
     expect(result.stdout).toMatch(/agentkit init/);
     expect(result.stdout).toMatch(/agentkit update/);
+  });
+
+  test("runs when invoked through a symlinked npm bin", () => {
+    const result = runViaSymlink(["--help"]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/Usage:/);
+    expect(result.stdout).toMatch(/agentkit init/);
+  });
+
+  test("init dry-run works when invoked through a symlinked npm bin", () => {
+    const target = tempDir();
+    const result = runViaSymlink(["init", target, "--yes", "--dry-run"]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/Would install AgentKit files/);
   });
 
   test("--version prints package version", () => {
@@ -161,6 +189,21 @@ describe("agentkit CLI", () => {
       "AGENTS.md",
       "CLAUDE.md",
     ]);
+  });
+
+  test("prompts for init when either terminal stream is interactive", () => {
+    expect(shouldPromptForInit({}, { stdin: { isTTY: true }, stdout: { isTTY: false } })).toBe(true);
+    expect(shouldPromptForInit({}, { stdin: { isTTY: false }, stdout: { isTTY: true } })).toBe(true);
+    expect(shouldPromptForInit({}, { stdin: { isTTY: false }, stdout: { isTTY: false } })).toBe(false);
+  });
+
+  test("init --yes disables interactive prompts", () => {
+    expect(shouldPromptForInit({ yes: true }, { stdin: { isTTY: true }, stdout: { isTTY: true } })).toBe(false);
+  });
+
+  test("init --dry-run skips prompts unless explicitly interactive", () => {
+    expect(shouldPromptForInit({ dryRun: true }, { stdin: { isTTY: true }, stdout: { isTTY: true } })).toBe(false);
+    expect(shouldPromptForInit({ dryRun: true, interactive: true }, {})).toBe(true);
   });
 
   test("personalizes repository-level AGENTS.md placeholders", () => {

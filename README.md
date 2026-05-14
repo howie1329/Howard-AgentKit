@@ -14,6 +14,13 @@ Install templates into the current directory:
 npx thomas-agentkit init
 ```
 
+If the package is installed in a project, use the local `agentkit` binary:
+
+```bash
+npm install -D thomas-agentkit
+npx agentkit init
+```
+
 By default, `init` opens a short interactive setup flow in terminals. It asks where to install files, what project type or preset to use, which AI tools you use, which template set to install, how to handle existing files, and whether to personalize repository-level placeholders such as project name, description, issue tracker, docs paths, stack summary, and project commands.
 
 Install into another directory:
