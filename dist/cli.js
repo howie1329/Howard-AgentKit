@@ -47,7 +47,14 @@ const aiToolFiles = {
 };
 const templateSetFiles = {
     minimal: ["AGENTS.md"],
-    standard: ["AGENTS.md", "CODE-QUALITY.md", "DESIGN-SYSTEM.md", "WORKFLOWS.md"],
+    standard: [
+        "AGENTS.md",
+        "CHANGE-EXPLANATION.md",
+        "CODE-QUALITY.md",
+        "DESIGN-SYSTEM.md",
+        "WORKFLOWS.md",
+        ".github/pull_request_template.md",
+    ],
     full: [],
 };
 const stackGuidance = {
@@ -390,7 +397,7 @@ function cleanPersonalizationValue(value) {
 }
 function getResolvedConfig(options) {
     const config = {
-        templateSet: options.templateSet ?? "full",
+        templateSet: options.templateSet ?? "standard",
         aiTools: options.aiTools ?? [],
         designSystem: effectiveDesignSystem(options.designSystem),
     };
@@ -565,10 +572,7 @@ async function resolveInitTemplateFiles(options) {
     if (options.files) {
         return options.files;
     }
-    if (options.templateSet || options.aiTools) {
-        return getSelectedTemplateFiles(options.templateSet ?? "full", options.aiTools ?? [], allTemplateFiles);
-    }
-    return allTemplateFiles;
+    return getSelectedTemplateFiles(options.templateSet ?? "standard", options.aiTools ?? [], allTemplateFiles);
 }
 async function installTemplates(targetArg, options) {
     const targetDir = path.resolve(process.cwd(), targetArg || ".");

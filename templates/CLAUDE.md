@@ -1,44 +1,19 @@
 # CLAUDE.md
 
-## Purpose
+Claude Code guidance for this repository.
 
-Project guidance for Claude-based coding and agent workflows.
+Follow `AGENTS.md` first. Treat it as the primary source of truth for project rules, workflows, quality standards, and handoff expectations.
 
-## Local Commands
+When relevant, also read:
 
-Replace these examples with the project’s real commands:
+- `CODE-QUALITY.md`
+- `WORKFLOWS.md`
+- `CHANGE-EXPLANATION.md`
+- `DESIGN-SYSTEM.md`
+- `TESTING.md`
+- `SECURITY-CHECKLIST.md`
+- `STACK.md`
 
-```bash
-npm install
-npm test
-npm run build
-npm run lint
-```
+Keep context focused. Do not load companion files unless they are relevant to the task.
 
-## Coding Standards
-
-- Keep changes focused on the requested behavior.
-- Prefer clear names and direct control flow.
-- Avoid new abstractions until duplication or complexity justifies them.
-- Preserve existing public interfaces unless the task requires a change.
-- Update nearby documentation when behavior or setup changes.
-
-## Agent Development
-
-- Document each agent’s goal, inputs, outputs, tools, and permission boundaries.
-- Keep prompts and tool schemas versioned with the code that depends on them.
-- Make failure modes explicit: retries, timeouts, partial results, and user-facing errors.
-- Use deterministic tests for core orchestration logic.
-
-## Review And Verification
-
-- Run the narrowest relevant test command first.
-- For UI changes, verify responsive behavior and obvious accessibility states.
-- For agent changes, test success, tool failure, invalid input, and timeout paths.
-- Summarize verification results in the final handoff.
-
-## Secrets
-
-- Use environment variables for local credentials.
-- Do not paste secrets into prompts, logs, fixtures, or committed files.
-- Provide `.env.example` entries for required variables without real values.
+Do not duplicate repository rules here. Update `AGENTS.md` or the relevant companion guide instead.

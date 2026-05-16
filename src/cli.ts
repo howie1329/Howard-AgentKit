@@ -119,7 +119,14 @@ const aiToolFiles: Record<AiToolName, string[]> = {
 
 const templateSetFiles: Record<TemplateSetName, string[]> = {
   minimal: ["AGENTS.md"],
-  standard: ["AGENTS.md", "CODE-QUALITY.md", "DESIGN-SYSTEM.md", "WORKFLOWS.md"],
+  standard: [
+    "AGENTS.md",
+    "CHANGE-EXPLANATION.md",
+    "CODE-QUALITY.md",
+    "DESIGN-SYSTEM.md",
+    "WORKFLOWS.md",
+    ".github/pull_request_template.md",
+  ],
   full: [],
 };
 
@@ -560,7 +567,7 @@ function cleanPersonalizationValue(value: string | undefined): string | undefine
 
 function getResolvedConfig(options: InitOptions): AgentKitConfig {
   const config: AgentKitConfig = {
-    templateSet: options.templateSet ?? "full",
+    templateSet: options.templateSet ?? "standard",
     aiTools: options.aiTools ?? [],
     designSystem: effectiveDesignSystem(options.designSystem),
   };
@@ -833,11 +840,7 @@ async function resolveInitTemplateFiles(options: InitOptions): Promise<string[]>
     return options.files;
   }
 
-  if (options.templateSet || options.aiTools) {
-    return getSelectedTemplateFiles(options.templateSet ?? "full", options.aiTools ?? [], allTemplateFiles);
-  }
-
-  return allTemplateFiles;
+  return getSelectedTemplateFiles(options.templateSet ?? "standard", options.aiTools ?? [], allTemplateFiles);
 }
 
 async function installTemplates(
