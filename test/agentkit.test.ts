@@ -28,11 +28,14 @@ const expectedTemplates = [
   ".github/copilot-instructions.md",
   ".github/pull_request_template.md",
   "AGENTS.md",
+  "CHANGE-EXPLANATION.md",
   "CLAUDE.md",
   "CODE-QUALITY.md",
   "DESIGN-SYSTEM.md",
   "IMPLEMENTATION-BRIEF-TEMPLATE.md",
   "PRD-TEMPLATE.md",
+  "SECURITY-CHECKLIST.md",
+  "TESTING.md",
   "WORKFLOWS.md",
 ];
 
@@ -175,7 +178,9 @@ describe("agentkit CLI", () => {
   test("maps template sets to bundled files", () => {
     expect(getFilesForTemplateSet("minimal", expectedTemplates)).toEqual(["AGENTS.md"]);
     expect(getFilesForTemplateSet("standard", expectedTemplates)).toEqual([
+      ".github/pull_request_template.md",
       "AGENTS.md",
+      "CHANGE-EXPLANATION.md",
       "CODE-QUALITY.md",
       "DESIGN-SYSTEM.md",
       "WORKFLOWS.md",
@@ -223,8 +228,7 @@ describe("agentkit CLI", () => {
     expect(personalized).toMatch(/# Acme CRM Agent Guide/);
     expect(personalized).toMatch(/Acme CRM is a customer operations dashboard/);
     expect(personalized).toMatch(/linked to an issue in Linear/);
-    expect(personalized).toMatch(/read `docs\/ui\.md`/);
-    expect(personalized).toMatch(/in `docs\/briefs`/);
+    expect(personalized).toMatch(/`docs\/ui\.md`/);
     expect(personalized).toMatch(/`pnpm test`/);
     expect(personalized).toMatch(/`pnpm lint`/);
     expect(personalized).toMatch(/`pnpm build`/);
@@ -256,24 +260,18 @@ describe("agentkit CLI", () => {
     expect(personalized).toMatch(/\[theme stylesheet path, e\.g\. src\/styles\.css\]/);
   });
 
-  test("personalizes command blocks in Claude and code quality docs", () => {
+  test("personalizes command blocks in code quality docs", () => {
     const values = {
       testCommand: "pnpm test",
       lintCommand: "pnpm lint",
       buildCommand: "pnpm build",
     };
-    const claude = personalizeTemplateContent(
-      "CLAUDE.md",
-      fs.readFileSync(path.join(templatesDir, "CLAUDE.md"), "utf8"),
-      values,
-    );
     const quality = personalizeTemplateContent(
       "CODE-QUALITY.md",
       fs.readFileSync(path.join(templatesDir, "CODE-QUALITY.md"), "utf8"),
       values,
     );
 
-    expect(claude).toMatch(/```bash\npnpm test\npnpm lint\npnpm build\n```/);
     expect(quality).toMatch(/```bash\npnpm test\npnpm lint\npnpm build\n```/);
   });
 
@@ -289,13 +287,18 @@ describe("agentkit CLI", () => {
     }
   });
 
-  test("init creates expected files recursively", () => {
+  test("init --yes creates standard files recursively", () => {
     const target = tempDir();
     const result = run(["init", target, "--yes"]);
+    const standardFiles = getFilesForTemplateSet("standard", expectedTemplates);
+    const nonStandardFiles = expectedTemplates.filter((file) => !standardFiles.includes(file));
 
     expect(result.status).toBe(0);
-    for (const file of expectedTemplates) {
+    for (const file of standardFiles) {
       expect(fs.existsSync(path.join(target, file)), file).toBe(true);
+    }
+    for (const file of nonStandardFiles) {
+      expect(fs.existsSync(path.join(target, file)), file).toBe(false);
     }
     expect(fs.readFileSync(path.join(target, "AGENTS.md"), "utf8")).toMatch(
       /<!-- agentkit:start agents -->/,
@@ -339,7 +342,7 @@ describe("agentkit CLI", () => {
     const result = run(["init", target, "--yes", "--preset", "next"]);
 
     expect(result.status).toBe(0);
-    for (const file of expectedTemplates) {
+    for (const file of getFilesForTemplateSet("standard", expectedTemplates)) {
       expect(fs.existsSync(path.join(target, file)), file).toBe(true);
     }
 
@@ -394,7 +397,7 @@ describe("agentkit CLI", () => {
     expect(fs.existsSync(path.join(target, "STACK.md"))).toBe(true);
     expect(fs.readFileSync(path.join(target, "AGENTS.md"), "utf8")).toMatch(/# Config App Agent Guide/);
     expect(fs.readFileSync(path.join(target, "AGENTS.md"), "utf8")).toMatch(/Config App is configured docs/);
-    expect(fs.readFileSync(path.join(target, "CLAUDE.md"), "utf8")).toMatch(/```bash\npnpm test\n```/);
+    expect(fs.readFileSync(path.join(target, "CLAUDE.md"), "utf8")).toMatch(/Follow `AGENTS\.md` first/);
   });
 
   test("init falls back to cwd config when target has no config", () => {
@@ -464,7 +467,7 @@ describe("agentkit CLI", () => {
 
     expect(result.status).toBe(0);
     expect(config).toEqual({
-      templateSet: "full",
+      templateSet: "standard",
       aiTools: [],
       designSystem: "linear",
     });
@@ -478,7 +481,7 @@ describe("agentkit CLI", () => {
 
     expect(result.status).toBe(0);
     expect(config).toEqual({
-      templateSet: "full",
+      templateSet: "standard",
       aiTools: [],
       preset: "next",
       designSystem: "linear",
@@ -540,7 +543,7 @@ describe("agentkit CLI", () => {
 
     expect(result.status).toBe(0);
     expect(config).toEqual({
-      templateSet: "full",
+      templateSet: "standard",
       aiTools: [],
       preset: "next",
       designSystem: "linear",

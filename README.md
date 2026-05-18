@@ -2,7 +2,7 @@
 
 AgentKit CLI bootstraps AI-agent-ready repositories.
 
-It installs reusable instructions, planning templates, review docs, design system rules, and workflow guidance for developers using Codex, Cursor, GitHub Copilot, Claude Code, and similar coding agents.
+It installs reusable agent instructions, workflow guides, quality checklists, design system rules, planning templates, and tool adapters for developers using Codex, Cursor, GitHub Copilot, Claude Code, and similar coding agents.
 
 AgentKit is not an AI agent. It is a small scaffolding tool for making repositories easier and safer to work on with AI-assisted development.
 
@@ -35,7 +35,7 @@ Accept defaults without prompts:
 npx thomas-agentkit init --yes
 ```
 
-`--yes` keeps installed templates generic and leaves placeholders for later editing.
+`--yes` installs the `standard` template set, keeps templates generic, and leaves placeholders for later editing.
 
 Preview changes without writing files:
 
@@ -127,14 +127,17 @@ npx thomas-agentkit --list-design-systems
 
 ## Installed Files
 
-AgentKit copies these bundled files into the target project:
+AgentKit can copy these bundled files into the target project:
 
 - `AGENTS.md`
+- `CHANGE-EXPLANATION.md`
 - `CLAUDE.md`
 - `CODE-QUALITY.md`
 - `DESIGN-SYSTEM.md`
 - `IMPLEMENTATION-BRIEF-TEMPLATE.md`
 - `PRD-TEMPLATE.md`
+- `SECURITY-CHECKLIST.md`
+- `TESTING.md`
 - `WORKFLOWS.md`
 - `.cursor/rules/agentkit.md`
 - `.github/copilot-instructions.md`
@@ -163,8 +166,8 @@ Interactive personalization only applies during `agentkit init` when files are c
 Template set mappings:
 
 - `minimal`: `AGENTS.md`
-- `standard`: `AGENTS.md`, `CODE-QUALITY.md`, `DESIGN-SYSTEM.md`, `WORKFLOWS.md`
-- `full`: all bundled templates
+- `standard`: `AGENTS.md`, `CHANGE-EXPLANATION.md`, `CODE-QUALITY.md`, `DESIGN-SYSTEM.md`, `WORKFLOWS.md`, `.github/pull_request_template.md`
+- `full`: all bundled templates, including AI tool adapters and planning/testing/security guides
 
 AI tool mappings:
 
@@ -172,6 +175,8 @@ AI tool mappings:
 - `cursor`: `.cursor/rules/agentkit.md`
 - `claude`: `CLAUDE.md`
 - `copilot`: `.github/copilot-instructions.md`
+
+AI tool adapters are thin compatibility files that point back to `AGENTS.md` as the source of truth. They are installed when selected through AI tools or when using the `full` template set.
 
 ## Presets
 

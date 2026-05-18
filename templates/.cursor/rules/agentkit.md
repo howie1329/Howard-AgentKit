@@ -1,26 +1,26 @@
 # Cursor AgentKit Rules
 
-Use these rules with Cursor agents and composer workflows.
+Use this rule as a repository guidance router for Cursor agents and composer workflows.
 
-## Default Behavior
+## Primary Guidance
 
-- Read `AGENTS.md` before implementation.
-- Read `DESIGN-SYSTEM.md` before UI, styling, layout, navigation, or component work.
-- Read `CODE-QUALITY.md` before review or refactor work.
-- Create or update an implementation brief for complex work.
+- Follow `AGENTS.md` first.
+- Treat `AGENTS.md` as the source of truth for repository-wide agent behavior.
+- Keep context focused. Read companion files only when relevant to the task.
 
-## Implementation Rules
+## Read When Relevant
 
-- Prefer the smallest complete solution.
-- Reuse existing components, utilities, and patterns.
-- Keep diffs focused and reviewable.
-- Avoid speculative abstractions and dependency bloat.
-- Do not change foundational theme, schema, or architecture without explicit approval.
+- `CODE-QUALITY.md`: code quality, review, refactors, dependencies.
+- `WORKFLOWS.md`: planning, implementation, review, release.
+- `CHANGE-EXPLANATION.md`: final handoff and developer-facing explanation.
+- `DESIGN-SYSTEM.md`: UI, styling, layout, navigation, components.
+- `TESTING.md`: tests, fixtures, mocks, QA strategy.
+- `SECURITY-CHECKLIST.md`: auth, permissions, secrets, PII, data handling.
+- `STACK.md`: stack-specific rules when present.
 
-## Handoff
+## Cursor Behavior
 
-Always summarize:
-
-- Files or areas changed.
-- Checks run.
-- Known risks or follow-up work.
+- Prefer existing repository patterns over generic generated patterns.
+- Keep changes scoped and reviewable.
+- Do not change foundational architecture, schema, dependencies, or theme primitives without explicit approval.
+- Summarize changed files, checks run, risks, and review focus before handoff.

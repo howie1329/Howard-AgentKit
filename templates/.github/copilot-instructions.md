@@ -1,25 +1,17 @@
 # GitHub Copilot Instructions
 
-Follow the repository rules in `AGENTS.md`, `CODE-QUALITY.md`, and `DESIGN-SYSTEM.md`.
+Follow `AGENTS.md` first. It is the primary source of truth for this repository's AI-agent guidance.
 
-## Coding Style
+When relevant, also read:
 
-- Prefer simple, maintainable, production-friendly code.
-- Match existing project patterns.
-- Keep changes small and explicit.
-- Avoid adding dependencies unless the benefit is clear.
-- Do not hardcode design tokens, colors, or font families in UI code.
+- `CODE-QUALITY.md`
+- `WORKFLOWS.md`
+- `CHANGE-EXPLANATION.md`
+- `DESIGN-SYSTEM.md`
+- `TESTING.md`
+- `SECURITY-CHECKLIST.md`
+- `STACK.md`
 
-## Before Suggesting Code
+For files covered by additional GitHub instructions under `.github/instructions/`, apply those path-specific instructions together with this file.
 
-- Inspect nearby code and reuse existing utilities or components.
-- Preserve public APIs unless the task requires a change.
-- Include validation at external boundaries.
-- Include tests when behavior changes.
-
-## Avoid
-
-- Speculative abstractions.
-- Broad rewrites for narrow requests.
-- Unrelated formatting churn.
-- Placeholder logic that looks production-ready but is incomplete.
+Prefer existing repository patterns over generic suggestions. Do not introduce new dependencies, architecture, or broad rewrites unless the task explicitly requires them.
