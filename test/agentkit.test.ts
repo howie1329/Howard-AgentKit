@@ -183,7 +183,6 @@ describe("agentkit CLI", () => {
       "CHANGE-EXPLANATION.md",
       "CODE-QUALITY.md",
       "DESIGN-SYSTEM.md",
-      "WORKFLOWS.md",
     ]);
     expect(getFilesForTemplateSet("full", expectedTemplates)).toEqual(expectedTemplates);
   });
@@ -227,7 +226,8 @@ describe("agentkit CLI", () => {
 
     expect(personalized).toMatch(/# Acme CRM Agent Guide/);
     expect(personalized).toMatch(/Acme CRM is a customer operations dashboard/);
-    expect(personalized).toMatch(/linked to an issue in Linear/);
+    expect(personalized).toMatch(/issue in Linear/);
+    expect(personalized).toMatch(/`docs\/briefs`/);
     expect(personalized).toMatch(/`docs\/ui\.md`/);
     expect(personalized).toMatch(/`pnpm test`/);
     expect(personalized).toMatch(/`pnpm lint`/);
@@ -245,7 +245,7 @@ describe("agentkit CLI", () => {
 
     expect(personalized).toMatch(/# Acme CRM Agent Guide/);
     expect(personalized).toMatch(/\[short project description\]/);
-    expect(personalized).toMatch(/\[test command, e\.g\. npm test\]/);
+    expect(personalized).toMatch(/`npm test`/);
   });
 
   test("personalizes design system project name only", () => {
@@ -260,19 +260,11 @@ describe("agentkit CLI", () => {
     expect(personalized).toMatch(/\[theme stylesheet path, e\.g\. src\/styles\.css\]/);
   });
 
-  test("personalizes command blocks in code quality docs", () => {
-    const values = {
-      testCommand: "pnpm test",
-      lintCommand: "pnpm lint",
-      buildCommand: "pnpm build",
-    };
-    const quality = personalizeTemplateContent(
-      "CODE-QUALITY.md",
-      fs.readFileSync(path.join(templatesDir, "CODE-QUALITY.md"), "utf8"),
-      values,
-    );
+  test("code quality guide points to AGENTS.md for commands", () => {
+    const quality = fs.readFileSync(path.join(templatesDir, "CODE-QUALITY.md"), "utf8");
 
-    expect(quality).toMatch(/```bash\npnpm test\npnpm lint\npnpm build\n```/);
+    expect(quality).toMatch(/AGENTS\.md.*Project Commands/);
+    expect(quality).not.toMatch(/```bash/);
   });
 
   test("does not personalize per-work-item templates", () => {

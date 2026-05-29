@@ -43,17 +43,7 @@ Use clear severity when reviewing or explaining issues:
 
 Run the narrowest useful checks first, then broaden verification for larger changes.
 
-Document project commands here:
-
-```bash
-npm test
-npm run lint
-npm run build
-```
-
-Remove commands that do not apply.
-
-For deeper testing guidance, use `TESTING.md` when present.
+Use the commands documented in `AGENTS.md` **Project Commands**. For deeper testing strategy, read `TESTING.md` when present.
 
 ## Dependency Policy
 

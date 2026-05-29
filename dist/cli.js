@@ -52,7 +52,6 @@ const templateSetFiles = {
         "CHANGE-EXPLANATION.md",
         "CODE-QUALITY.md",
         "DESIGN-SYSTEM.md",
-        "WORKFLOWS.md",
         ".github/pull_request_template.md",
     ],
     full: [],

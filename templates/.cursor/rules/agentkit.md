@@ -6,21 +6,22 @@ Use this rule as a repository guidance router for Cursor agents and composer wor
 
 - Follow `AGENTS.md` first.
 - Treat `AGENTS.md` as the source of truth for repository-wide agent behavior.
-- Keep context focused. Read companion files only when relevant to the task.
+- Do not load companion files for routine coding unless a trigger in `AGENTS.md` applies or the user asks.
 
-## Read When Relevant
+## When Relevant
 
-- `CODE-QUALITY.md`: code quality, review, refactors, dependencies.
-- `WORKFLOWS.md`: planning, implementation, review, release.
-- `CHANGE-EXPLANATION.md`: required format for the final message after any task that edits files.
-- `DESIGN-SYSTEM.md`: UI, styling, layout, navigation, components.
-- `TESTING.md`: tests, fixtures, mocks, QA strategy.
-- `SECURITY-CHECKLIST.md`: auth, permissions, secrets, PII, data handling.
-- `STACK.md`: stack-specific rules when present.
+- **File edits (final message):** change-explanation format in `AGENTS.md` and `CHANGE-EXPLANATION.md`.
+- **UI / styling / layout:** `DESIGN-SYSTEM.md` or the project design-system path from `AGENTS.md`.
+- **Review / refactor / dependencies:** `CODE-QUALITY.md`.
+- **Tests / QA strategy:** `TESTING.md` if present.
+- **Auth / secrets / PII:** `SECURITY-CHECKLIST.md` if present.
+- **Stack-specific code:** `STACK.md` if present.
+- **Planning docs requested:** create from `PRD-TEMPLATE.md` or `IMPLEMENTATION-BRIEF-TEMPLATE.md` under the project's briefs path.
+- **Process map (optional):** `WORKFLOWS.md` if present.
 
 ## Cursor Behavior
 
 - Prefer existing repository patterns over generic generated patterns.
 - Keep changes scoped and reviewable.
 - Do not change foundational architecture, schema, dependencies, or theme primitives without explicit approval.
-- After modifying files, end every task with a change explanation per `CHANGE-EXPLANATION.md` (summary, what changed, verification, risks, review focus). Scale depth to the change; do not skip for small fixes.
+- After modifying files, end every task with a change explanation per `AGENTS.md` (summary, what changed, verification, risks, review focus). Scale depth to the change; do not skip for small fixes.

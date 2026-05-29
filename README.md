@@ -166,7 +166,7 @@ Interactive personalization only applies during `agentkit init` when files are c
 Template set mappings:
 
 - `minimal`: `AGENTS.md`
-- `standard`: `AGENTS.md`, `CHANGE-EXPLANATION.md`, `CODE-QUALITY.md`, `DESIGN-SYSTEM.md`, `WORKFLOWS.md`, `.github/pull_request_template.md`
+- `standard`: `AGENTS.md`, `CHANGE-EXPLANATION.md`, `CODE-QUALITY.md`, `DESIGN-SYSTEM.md`, `.github/pull_request_template.md`
 - `full`: all bundled templates, including AI tool adapters and planning/testing/security guides
 
 AI tool mappings:
@@ -268,3 +268,5 @@ AgentKit should stay:
 - safe by default
 - useful immediately
 - not overengineered
+
+Installed guidance is **AGENTS-first**: `AGENTS.md` is enough for daily coding, including required change explanations after file edits. Companion files are loaded on explicit triggers (UI, review, security, stack, planning when requested), not on every task. The `full` template set adds optional guides such as `WORKFLOWS.md`, `TESTING.md`, and planning templates.

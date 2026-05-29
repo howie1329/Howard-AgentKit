@@ -28,9 +28,8 @@ Modernize AgentKit's installed guidance templates around a concise `AGENTS.md` r
 ### Standard
 
 - `AGENTS.md`
-- `CODE-QUALITY.md`
-- `WORKFLOWS.md`
 - `CHANGE-EXPLANATION.md`
+- `CODE-QUALITY.md`
 - `DESIGN-SYSTEM.md`
 - `.github/pull_request_template.md`
 
@@ -80,3 +79,12 @@ npm test
 ```
 
 Also inspect dry-run output for default and full installs when possible.
+
+## Phase 2 (AGENTS-first routing)
+
+- `AGENTS.md` is self-sufficient for daily work: inline change-explanation checklist, quality/AI-risk bullets in operating rules, trimmed **Before Coding**, and **Planning artifacts** decision tree.
+- **Reference Map** replaced with trigger-based **When To Use Other Guides** plus **Optional guides (full template set)**.
+- `CHANGE-EXPLANATION.md` is required after any task that edits files (response format in the agent message, not a per-task file).
+- `WORKFLOWS.md` removed from `standard`; slimmed to an optional document map for `full` installs only.
+- Planning templates (`PRD-TEMPLATE.md`, `IMPLEMENTATION-BRIEF-TEMPLATE.md`) are create-on-request artifacts under `[briefs path]`, not default reads.
+- AI tool adapters use triggers instead of flat companion file lists.

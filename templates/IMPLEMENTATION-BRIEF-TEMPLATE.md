@@ -1,5 +1,7 @@
 # Implementation Brief
 
+Copy this file into `[briefs path, e.g. docs/briefs]` when the user, issue, or task explicitly requests an implementation brief. Agents should not read this template on every task.
+
 ## Title
 
 [Feature or fix name]
