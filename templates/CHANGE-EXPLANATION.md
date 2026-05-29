@@ -2,13 +2,25 @@
 
 ## Purpose
 
-Use this guide when explaining completed work to the developer.
+Use this guide **after every task that modifies repository files**.
 
-The goal is to help the developer understand what changed, why it changed, how the implementation works, what was verified, and what deserves review attention.
+The goal is to help the developer get up to speed quickly: what changed, why it changed, how it works, what was verified, and what deserves review attention.
 
-This is a reusable handoff guide. Do not create a new change-explanation file for every task unless the project explicitly asks for one.
+This is a **response format** for agent messages. Do **not** create a new markdown file per task unless the project explicitly asks for one.
 
-## Handoff Format
+Research-only tasks that do not edit files do not require this format.
+
+## When Required
+
+| Situation | Change explanation |
+| --- | --- |
+| Any bugfix, feature, refactor, config, or doc edit in the repo | **Required** — follow this guide in your final message |
+| Research, options, or questions with no file edits | Not required |
+| User asks only to explain existing code (no edits) | Not required |
+
+Scale depth to the size of the change. A one-line fix still needs a short explanation; a large feature needs full sections.
+
+## Change Explanation Format
 
 ### Summary
 
@@ -35,6 +47,8 @@ Include when relevant:
 - trade-offs or constraints
 - assumptions made because requirements were unclear
 
+Skip this section when the change is straightforward and has no meaningful trade-offs.
+
 ### Verification
 
 List checks run, such as:
@@ -57,6 +71,8 @@ Call out anything the developer should know before merging or shipping:
 - security or privacy considerations
 - performance concerns
 - follow-up cleanup
+
+Use "None identified" when appropriate for very small, low-risk changes.
 
 ### Suggested Review Focus
 

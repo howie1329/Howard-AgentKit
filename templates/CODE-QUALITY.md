@@ -78,14 +78,14 @@ Watch for common AI-generated issues:
 - client-only validation or authorization for sensitive actions
 - excessive comments explaining obvious code instead of clarifying intent
 
-## Handoff Standard
+## Change Explanation Standard
 
-Every completed change should include:
+Every completed change that edits files must end with a developer-facing explanation that follows `CHANGE-EXPLANATION.md` in the agent's final message.
+
+At minimum, cover:
 
 - What changed.
 - Why it changed.
 - What checks were run.
 - Known risks or limitations.
 - Follow-up work, if any.
-
-Use `CHANGE-EXPLANATION.md` when present for the final developer-facing handoff.

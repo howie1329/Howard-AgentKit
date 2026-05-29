@@ -16,7 +16,7 @@ Keep this file practical. Delete sections that do not apply to the project.
 | UI, styling, layout, navigation, components | `DESIGN-SYSTEM.md` |
 | Security-sensitive change | `SECURITY-CHECKLIST.md` |
 | Test strategy or test implementation | `TESTING.md` |
-| Final handoff or PR explanation | `CHANGE-EXPLANATION.md` |
+| Any task that edits repository files | `CHANGE-EXPLANATION.md` (format for the agent's final message) |
 
 ## Research-Only Workflow
 
@@ -54,8 +54,8 @@ Tiny fixes can skip formal planning when the change is obvious and low risk.
 4. Make the smallest complete change.
 5. Add or update tests where behavior changes.
 6. Run relevant checks.
-7. Review the diff before handoff.
-8. Explain the change using `CHANGE-EXPLANATION.md` when present.
+7. Review the diff before finishing.
+8. End with a change explanation that follows `CHANGE-EXPLANATION.md` whenever files were modified.
 
 ## Pause And Ask Triggers
 

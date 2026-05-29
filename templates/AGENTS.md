@@ -21,7 +21,7 @@ Read these files when the task calls for them:
 | Any implementation | `AGENTS.md` |
 | Code quality, refactors, review, dependencies | `CODE-QUALITY.md` |
 | Planning, branching, implementation, review, release | `WORKFLOWS.md` |
-| Final handoff or PR explanation | `CHANGE-EXPLANATION.md` |
+| After any task that edits repository files | `CHANGE-EXPLANATION.md` (use its format in your final message) |
 | UI, styling, layout, navigation, components | `[design system path, e.g. docs/design-system.md]` |
 | Tests, fixtures, mocks, QA strategy | `TESTING.md` |
 | Auth, permissions, secrets, PII, data handling | `SECURITY-CHECKLIST.md` |
@@ -45,8 +45,8 @@ If a subdirectory contains its own `AGENTS.md` or equivalent local guidance, fol
 - Validate external input at system boundaries.
 - Keep public APIs and persisted data shapes stable unless the task requires a change.
 - Ask before destructive commands, broad refactors, schema changes, dependency additions, or security-sensitive changes.
-- Run the narrowest useful checks before handoff.
-- Explain completed work clearly using `CHANGE-EXPLANATION.md` when present.
+- Run the narrowest useful checks before finishing.
+- After any coding work that changes files, end with a change explanation that follows `CHANGE-EXPLANATION.md`. Do not skip this for small fixes.
 
 ## Before Coding
 
@@ -74,7 +74,7 @@ While implementing:
 - Add or update tests when behavior changes.
 - For UI work, follow `[design system path, e.g. docs/design-system.md]` and preserve existing interaction patterns.
 - For stack-specific work, read `STACK.md` when present.
-- Document meaningful decisions in the implementation brief, PR, or final handoff.
+- Document meaningful decisions in the change explanation, implementation brief, or PR when they matter.
 
 ## Approval Boundaries
 
@@ -86,6 +86,14 @@ Ask before:
 - Changing global design tokens, theme primitives, or foundational layout rules.
 - Performing broad refactors or large formatting-only rewrites.
 - Editing generated, vendored, or external-source files unless the task explicitly requires it.
+
+## After Coding (Required)
+
+If you modified any files in the repository, your **final message** must include a change explanation that follows `CHANGE-EXPLANATION.md`.
+
+This is how developers catch up on agent work. It is required for bugfixes, refactors, and small edits—not only large features or PRs. Scale section depth to the change; do not omit the explanation because the diff is small.
+
+Do not write a separate change-explanation file unless the project asks for one. Use the format in your reply.
 
 ## Before Finishing
 
@@ -99,8 +107,7 @@ Before marking work complete:
    - `[build/check command, e.g. npm run build]` for larger changes
 4. Review the diff for unrelated changes.
 5. Confirm no unnecessary dependencies, schema changes, theme changes, or broad refactors were introduced.
-6. Summarize what changed, why it changed, checks run, risks, and follow-up work.
-7. If `CHANGE-EXPLANATION.md` exists, follow it for the final handoff.
+6. Include the change explanation from **After Coding (Required)** in your final message.
 
 ## Project Commands
 

@@ -2,7 +2,7 @@
 
 Claude Code guidance for this repository.
 
-Follow `AGENTS.md` first. Treat it as the primary source of truth for project rules, workflows, quality standards, and handoff expectations.
+Follow `AGENTS.md` first. Treat it as the primary source of truth for project rules, workflows, quality standards, and change-explanation expectations.
 
 When relevant, also read:
 
