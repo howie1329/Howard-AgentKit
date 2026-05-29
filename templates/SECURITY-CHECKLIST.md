@@ -76,9 +76,9 @@ Avoid these common AI-generated security problems:
 - adding permissive CORS or CSP rules to fix local issues
 - assuming user IDs, workspace IDs, or tenant IDs from untrusted input
 
-## Handoff Requirements
+## Change Explanation Requirements
 
-For security-sensitive work, explicitly report:
+For security-sensitive work, include in the change explanation after coding:
 
 - security-sensitive files or behavior changed
 - tests or checks run

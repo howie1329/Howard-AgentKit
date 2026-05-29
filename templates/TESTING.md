@@ -79,7 +79,7 @@ Avoid these common AI-generated testing problems:
 
 ## Reporting Verification
 
-In the final handoff, include:
+In the change explanation after coding work, include:
 
 - checks run
 - whether they passed

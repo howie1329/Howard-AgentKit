@@ -43,17 +43,7 @@ Use clear severity when reviewing or explaining issues:
 
 Run the narrowest useful checks first, then broaden verification for larger changes.
 
-Document project commands here:
-
-```bash
-npm test
-npm run lint
-npm run build
-```
-
-Remove commands that do not apply.
-
-For deeper testing guidance, use `TESTING.md` when present.
+Use the commands documented in `AGENTS.md` **Project Commands**. For deeper testing strategy, read `TESTING.md` when present.
 
 ## Dependency Policy
 
@@ -78,14 +68,14 @@ Watch for common AI-generated issues:
 - client-only validation or authorization for sensitive actions
 - excessive comments explaining obvious code instead of clarifying intent
 
-## Handoff Standard
+## Change Explanation Standard
 
-Every completed change should include:
+Every completed change that edits files must end with a developer-facing explanation that follows `CHANGE-EXPLANATION.md` in the agent's final message.
+
+At minimum, cover:
 
 - What changed.
 - Why it changed.
 - What checks were run.
 - Known risks or limitations.
 - Follow-up work, if any.
-
-Use `CHANGE-EXPLANATION.md` when present for the final developer-facing handoff.

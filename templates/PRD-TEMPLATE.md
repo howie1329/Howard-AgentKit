@@ -1,5 +1,7 @@
 # PRD Template
 
+Copy this file into `[briefs path, e.g. docs/briefs]` when the user, issue, or task explicitly requests a PRD. Agents should not read this template on every task.
+
 ## Title
 
 [Project or feature name]
