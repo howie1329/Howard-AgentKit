@@ -72,11 +72,11 @@ Add to `AgentKitConfig`:
 - Existing configs without `installMode` → treat as `"template"`
 - Reject unknown `installMode` values at load time
 
-### 3. `agentkit init` — minimal change
+### 3. `agentkit init` — unified interactive dispatcher
 
-- Set `installMode: "template"` when config is written (`--write-config` or interactive write)
-- Interactive TTY: light cross-prompt — "Copy templates (this command) or install skill instead? (`agentkit skill install`)"
-- `--yes` continues to mean template install with defaults — **no** skill prompt
+- Set `installMode: "template"` when config is written via `--write-config`
+- Interactive TTY: first prompt chooses **copy templates** or **install skill**, then shared setup prompts, then executes the selected path in the same session
+- `--yes` continues to mean template install with defaults — **no** bootstrap path prompt
 
 ### 4. `agentkit update` — skill-path guard
 

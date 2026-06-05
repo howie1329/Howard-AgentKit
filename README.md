@@ -29,7 +29,7 @@ ONGOING WORK (agent + skill path only)
 └── agentkit doctor → agent audits guidance quality (coming soon)
 ```
 
-> `agentkit skill install` ships in v0.9.x. Earlier package versions support the template path only.
+Interactive `agentkit init` asks whether to copy templates or install the AgentKit skill, then runs the chosen path in the same session.
 
 ## Usage
 

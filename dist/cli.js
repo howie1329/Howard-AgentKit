@@ -5,6 +5,7 @@ import { constants as fsConstants, realpathSync } from "node:fs";
 import { access, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getSkillDestinationPaths, getSkillSourceDir, installSkill, listSkillFiles, printSkillInstallResult, } from "./skill-install.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, "..");
@@ -20,7 +21,16 @@ const designSystemLabels = {
     apple: "Apple-inspired",
 };
 const configFileName = "agentkit.config.json";
-const configKeys = ["preset", "templateSet", "aiTools", "designSystem", "personalization"];
+const configKeys = [
+    "installMode",
+    "agentkitVersion",
+    "preset",
+    "templateSet",
+    "aiTools",
+    "designSystem",
+    "personalization",
+];
+const validInstallModes = ["template", "skill"];
 const personalizationKeys = [
     "projectName",
     "projectDescription",
@@ -128,7 +138,7 @@ async function collectInstallableTemplatePaths(dir, base) {
     for (const entry of entries) {
         const absolutePath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-            if (dir === templatesDir && entry.name === "design-systems") {
+            if (dir === templatesDir && (entry.name === "design-systems" || entry.name === "skills")) {
                 continue;
             }
             discovered.push(...(await collectInstallableTemplatePaths(absolutePath, base)));
@@ -257,13 +267,31 @@ function readConfigPersonalization(value) {
     }
     return personalization;
 }
+function resolveInstallMode(installMode) {
+    const normalizedInstallMode = installMode.toLowerCase();
+    if (!validInstallModes.includes(normalizedInstallMode)) {
+        throw new Error(`Unknown install mode "${installMode}". Valid install modes: ${validInstallModes.join(", ")}.`);
+    }
+    return normalizedInstallMode;
+}
+export function getInstallMode(config) {
+    return config?.installMode ?? "template";
+}
 function parseConfig(rawConfig, configPath) {
     assertPlainObject(rawConfig, configFileName);
     assertKnownKeys(rawConfig, configKeys, configFileName);
     const preset = optionalConfigString(rawConfig, "preset");
     const templateSet = optionalConfigString(rawConfig, "templateSet");
     const designSystem = optionalConfigString(rawConfig, "designSystem");
+    const installMode = optionalConfigString(rawConfig, "installMode");
+    const agentkitVersion = optionalConfigString(rawConfig, "agentkitVersion");
     const config = {};
+    if (installMode !== undefined) {
+        config.installMode = resolveInstallMode(installMode);
+    }
+    if (agentkitVersion !== undefined) {
+        config.agentkitVersion = agentkitVersion;
+    }
     if (preset !== undefined) {
         config.preset = resolvePreset(preset);
     }
@@ -394,8 +422,10 @@ function cleanPersonalizationValue(value) {
     const trimmed = value?.trim();
     return trimmed ? trimmed : undefined;
 }
-function getResolvedConfig(options) {
+function getResolvedConfig(options, installMode, agentkitVersion) {
     const config = {
+        installMode,
+        agentkitVersion,
         templateSet: options.templateSet ?? "standard",
         aiTools: options.aiTools ?? [],
         designSystem: effectiveDesignSystem(options.designSystem),
@@ -573,7 +603,7 @@ async function resolveInitTemplateFiles(options) {
     }
     return getSelectedTemplateFiles(options.templateSet ?? "standard", options.aiTools ?? [], allTemplateFiles);
 }
-async function installTemplates(targetArg, options) {
+async function installTemplates(targetArg, options, agentkitVersion) {
     const targetDir = path.resolve(process.cwd(), targetArg || ".");
     const files = await resolveInitTemplateFiles(options);
     const preset = resolvePreset(options.preset);
@@ -583,7 +613,7 @@ async function installTemplates(targetArg, options) {
         await mkdir(targetDir, { recursive: true });
     }
     if (options.writeConfig) {
-        await installFileIfAllowed(targetDir, configFileName, options, result, () => serializeConfig(getResolvedConfig(options)));
+        await installFileIfAllowed(targetDir, configFileName, options, result, () => serializeConfig(getResolvedConfig(options, "template", agentkitVersion)));
     }
     for (const file of files) {
         await installFileIfAllowed(targetDir, file, options, result, async () => {
@@ -790,7 +820,23 @@ async function promptForConflictStrategy(existingFiles) {
         ],
     }));
 }
-async function applyInteractiveSelections(resolvedTarget, providedPreset, options) {
+async function promptForBootstrapPath() {
+    return resolvePrompt(await select({
+        message: "How do you want to set up AgentKit?",
+        initialValue: "template",
+        options: [
+            {
+                label: "Copy templates now (install AGENTS.md and companion files)",
+                value: "template",
+            },
+            {
+                label: "Install AgentKit skill (create guidance files later in your agent)",
+                value: "skill",
+            },
+        ],
+    }));
+}
+async function collectInstallOptions(resolvedTarget, providedPreset, options) {
     if (!providedPreset) {
         options.preset = await promptForProjectPreset();
     }
@@ -803,25 +849,50 @@ async function applyInteractiveSelections(resolvedTarget, providedPreset, option
     if (templateSet === "standard" || templateSet === "full") {
         options.designSystem = await promptForDesignSystem(options.designSystem);
     }
-    if (!options.force) {
+}
+async function resolveConflictForInstall(resolvedTarget, options, bootstrapPath) {
+    if (options.force) {
+        return;
+    }
+    let installFiles;
+    if (bootstrapPath === "skill") {
+        const skillFiles = await listSkillFiles(getSkillSourceDir(packageRoot));
+        installFiles = [...getSkillDestinationPaths(skillFiles), configFileName];
+    }
+    else {
         const preset = resolvePreset(options.preset);
-        const installFiles = preset ? [...options.files, "STACK.md"] : options.files;
-        const existingFiles = await findExistingInstallFiles(resolvedTarget, installFiles);
-        if (existingFiles.length > 0) {
-            options.force = (await promptForConflictStrategy(existingFiles)) === "overwrite";
-        }
+        installFiles = preset ? [...(options.files ?? []), "STACK.md"] : (options.files ?? []);
+    }
+    const existingFiles = await findExistingInstallFiles(resolvedTarget, installFiles);
+    if (existingFiles.length > 0) {
+        options.force = (await promptForConflictStrategy(existingFiles)) === "overwrite";
     }
 }
-async function resolveInteractiveTarget(target, options) {
-    const providedPreset = resolvePreset(options.preset);
-    if (!shouldPromptForInit(options, process)) {
-        return target;
-    }
+async function runInteractiveInstall(target, options, agentkitVersion) {
     intro("Welcome to AgentKit");
+    const bootstrapPath = await promptForBootstrapPath();
+    const providedPreset = resolvePreset(options.preset);
     const resolvedTarget = await promptForTarget(target);
-    await applyInteractiveSelections(resolvedTarget, providedPreset, options);
+    await collectInstallOptions(resolvedTarget, providedPreset, options);
     options.personalization = await promptForPersonalization(options.personalization);
-    return resolvedTarget;
+    await resolveConflictForInstall(resolvedTarget, options, bootstrapPath);
+    if (bootstrapPath === "skill") {
+        const result = await installSkill(resolvedTarget, options, packageRoot, agentkitVersion);
+        printSkillInstallResult(result, Boolean(options.dryRun));
+        return;
+    }
+    const result = await installTemplates(resolvedTarget, options, agentkitVersion);
+    printInstallResult(result, Boolean(options.dryRun));
+}
+async function runSkillInstallInteractive(target, options, agentkitVersion) {
+    intro("Welcome to AgentKit");
+    const providedPreset = resolvePreset(options.preset);
+    const resolvedTarget = await promptForTarget(target);
+    await collectInstallOptions(resolvedTarget, providedPreset, options);
+    options.personalization = await promptForPersonalization(options.personalization);
+    await resolveConflictForInstall(resolvedTarget, options, "skill");
+    const result = await installSkill(resolvedTarget, options, packageRoot, agentkitVersion);
+    printSkillInstallResult(result, Boolean(options.dryRun));
 }
 async function main() {
     if (process.argv.slice(2).includes("--list")) {
@@ -855,6 +926,7 @@ async function main() {
 
 Examples:
   agentkit init
+  agentkit skill install
   agentkit update
   agentkit init --preset next
   agentkit init ./my-project --yes --dry-run
@@ -874,9 +946,34 @@ Examples:
         .option("--design-system <name>", `design system guidance for DESIGN-SYSTEM.md (${formatDesignSystemList()})`)
         .action(async (target, options) => {
         await applyInitConfig(options, await loadConfigForTarget(target));
-        const resolvedTarget = await resolveInteractiveTarget(target, options);
-        const result = await installTemplates(resolvedTarget, options);
+        const agentkitVersion = await readPackageVersion();
+        if (shouldPromptForInit(options, process)) {
+            await runInteractiveInstall(target, options, agentkitVersion);
+            return;
+        }
+        const result = await installTemplates(target, options, agentkitVersion);
         printInstallResult(result, Boolean(options.dryRun));
+    });
+    const skill = program.command("skill").description("install the bundled AgentKit Agent Skill");
+    skill
+        .command("install")
+        .description("install the bundled agentkit skill and write agentkit.config.json")
+        .argument("[target]", "target project directory", ".")
+        .option("--force", "overwrite existing skill files and config")
+        .option("--dry-run", "print planned changes without writing files")
+        .option("-i, --interactive", "prompt for install options")
+        .option("-y, --yes", "accept defaults for non-interactive runs")
+        .option("--preset <name>", `store stack preset in config (${formatPresetList()})`)
+        .option("--design-system <name>", `store design system choice in config (${formatDesignSystemList()})`)
+        .action(async (target, options) => {
+        await applyInitConfig(options, await loadConfigForTarget(target));
+        const agentkitVersion = await readPackageVersion();
+        if (shouldPromptForInit(options, process)) {
+            await runSkillInstallInteractive(target, options, agentkitVersion);
+            return;
+        }
+        const result = await installSkill(target, options, packageRoot, agentkitVersion);
+        printSkillInstallResult(result, Boolean(options.dryRun));
     });
     program
         .command("update")
@@ -886,7 +983,14 @@ Examples:
         .option("--preset <name>", `update stack-specific guidance (${formatPresetList()})`)
         .option("--design-system <name>", `design system guidance for DESIGN-SYSTEM.md (${formatDesignSystemList()})`)
         .action(async (target, options) => {
-        applyUpdateConfig(options, await loadConfigForTarget(target));
+        const config = await loadConfigForTarget(target);
+        if (getInstallMode(config) === "skill") {
+            console.log("This project uses installMode: skill.");
+            console.log("Run agentkit update in your agent to sync guidance files.");
+            console.log("(CLI agentkit update applies to template-path installs.)");
+            return;
+        }
+        applyUpdateConfig(options, config);
         const result = await updateTemplates(target, options);
         printUpdateResult(result, Boolean(options.dryRun));
     });
