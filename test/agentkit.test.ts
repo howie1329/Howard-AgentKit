@@ -23,6 +23,17 @@ const packageJson = JSON.parse(
   bin: Record<string, string>;
 };
 
+const expectedSkillFiles = [
+  "SKILL.md",
+  "agents/openai.yaml",
+  "references/doctor.md",
+  "references/file-contract.md",
+  "references/init.md",
+  "references/learn.md",
+  "references/repair.md",
+  "references/update.md",
+];
+
 const expectedTemplates = [
   ".cursor/rules/agentkit.md",
   ".github/copilot-instructions.md",
@@ -65,6 +76,17 @@ function writeConfig(target: string, config: unknown) {
   fs.writeFileSync(path.join(target, "agentkit.config.json"), JSON.stringify(config, null, 2));
 }
 
+function expectedTemplateConfig(overrides: Record<string, unknown> = {}) {
+  return {
+    installMode: "template",
+    agentkitVersion: packageJson.version,
+    templateSet: "standard",
+    aiTools: [],
+    designSystem: "linear",
+    ...overrides,
+  };
+}
+
 describe("agentkit CLI", () => {
   beforeAll(() => {
     const result = spawnSync("npm", ["run", "build"], {
@@ -86,6 +108,7 @@ describe("agentkit CLI", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/Usage:/);
     expect(result.stdout).toMatch(/agentkit init/);
+    expect(result.stdout).toMatch(/agentkit skill install/);
     expect(result.stdout).toMatch(/agentkit update/);
   });
 
@@ -155,6 +178,17 @@ describe("agentkit CLI", () => {
     }
     expect(fs.existsSync(path.join(templatesDir, "design-systems/linear.md"))).toBe(true);
     expect(fs.existsSync(path.join(templatesDir, "design-systems/apple.md"))).toBe(true);
+  });
+
+  test("skill route references exist", () => {
+    const skillRoot = path.join(templatesDir, "skills", "agentkit");
+    const skill = fs.readFileSync(path.join(skillRoot, "SKILL.md"), "utf8");
+    const references = [...skill.matchAll(/`(references\/[^`]+\.md)`/g)].map((match) => match[1]);
+
+    expect(references.length).toBeGreaterThan(0);
+    for (const reference of references) {
+      expect(fs.existsSync(path.join(skillRoot, reference)), reference).toBe(true);
+    }
   });
 
   test("maps project types to presets", () => {
@@ -458,11 +492,7 @@ describe("agentkit CLI", () => {
     const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as unknown;
 
     expect(result.status).toBe(0);
-    expect(config).toEqual({
-      templateSet: "standard",
-      aiTools: [],
-      designSystem: "linear",
-    });
+    expect(config).toEqual(expectedTemplateConfig());
     expect(result.stdout).toMatch(/Created: .*agentkit\.config\.json/);
   });
 
@@ -472,12 +502,11 @@ describe("agentkit CLI", () => {
     const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as unknown;
 
     expect(result.status).toBe(0);
-    expect(config).toEqual({
-      templateSet: "standard",
-      aiTools: [],
-      preset: "next",
-      designSystem: "linear",
-    });
+    expect(config).toEqual(
+      expectedTemplateConfig({
+        preset: "next",
+      }),
+    );
     expect(fs.readFileSync(path.join(target, "STACK.md"), "utf8")).toMatch(/Next\.js/);
   });
 
@@ -497,15 +526,16 @@ describe("agentkit CLI", () => {
     const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as unknown;
 
     expect(result.status).toBe(0);
-    expect(config).toEqual({
-      templateSet: "minimal",
-      aiTools: ["claude"],
-      preset: "express",
-      designSystem: "linear",
-      personalization: {
-        projectName: "Config App",
-      },
-    });
+    expect(config).toEqual(
+      expectedTemplateConfig({
+        templateSet: "minimal",
+        aiTools: ["claude"],
+        preset: "express",
+        personalization: {
+          projectName: "Config App",
+        },
+      }),
+    );
   });
 
   test("init --write-config skips existing config by default", () => {
@@ -534,12 +564,11 @@ describe("agentkit CLI", () => {
     const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as unknown;
 
     expect(result.status).toBe(0);
-    expect(config).toEqual({
-      templateSet: "standard",
-      aiTools: [],
-      preset: "next",
-      designSystem: "linear",
-    });
+    expect(config).toEqual(
+      expectedTemplateConfig({
+        preset: "next",
+      }),
+    );
   });
 
   test("init skips existing files by default", () => {
@@ -922,5 +951,106 @@ describe("agentkit CLI", () => {
 
     expect(updateExisting.status).toBe(0);
     expect(fs.readFileSync(configPath, "utf8")).toBe(existingConfig);
+  });
+
+  test("skill install --yes copies bundled skill files and writes config", () => {
+    const target = tempDir();
+    const result = run(["skill", "install", target, "--yes"]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/Installed AgentKit skill/);
+    expect(result.stdout).toMatch(/installMode: skill/);
+
+    for (const file of expectedSkillFiles) {
+      const installedPath = path.join(target, ".agents", "skills", "agentkit", file);
+      expect(fs.existsSync(installedPath), file).toBe(true);
+    }
+
+    expect(fs.existsSync(path.join(target, "AGENTS.md"))).toBe(false);
+
+    const config = JSON.parse(fs.readFileSync(path.join(target, "agentkit.config.json"), "utf8")) as {
+      installMode: string;
+      agentkitVersion: string;
+    };
+
+    expect(config.installMode).toBe("skill");
+    expect(config.agentkitVersion).toBe(packageJson.version);
+  });
+
+  test("skill install --dry-run writes nothing", () => {
+    const target = tempDir();
+    const result = run(["skill", "install", target, "--yes", "--dry-run"]);
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(path.join(target, ".agents"))).toBe(false);
+    expect(result.stdout).toMatch(/Would install AgentKit skill/);
+    expect(result.stdout).toMatch(/agents\/openai\.yaml/);
+    expect(result.stdout).toMatch(/references\/learn\.md/);
+    expect(result.stdout).toMatch(/references\/repair\.md/);
+    expect(result.stdout).toMatch(/Would create: .*agentkit\.config\.json/);
+  });
+
+  test("skill install skips existing skill files by default", () => {
+    const target = tempDir();
+    const skillFile = path.join(target, ".agents", "skills", "agentkit", "SKILL.md");
+    fs.mkdirSync(path.dirname(skillFile), { recursive: true });
+    fs.writeFileSync(skillFile, "custom skill\n");
+
+    const result = run(["skill", "install", target, "--yes"]);
+    const content = fs.readFileSync(skillFile, "utf8");
+
+    expect(result.status).toBe(0);
+    expect(content).toBe("custom skill\n");
+    expect(result.stdout).toMatch(/Skipped existing: .*SKILL\.md/);
+  });
+
+  test("skill install --force overwrites existing skill files", () => {
+    const target = tempDir();
+    const skillFile = path.join(target, ".agents", "skills", "agentkit", "SKILL.md");
+    fs.mkdirSync(path.dirname(skillFile), { recursive: true });
+    fs.writeFileSync(skillFile, "custom skill\n");
+
+    const result = run(["skill", "install", target, "--yes", "--force"]);
+    const content = fs.readFileSync(skillFile, "utf8");
+
+    expect(result.status).toBe(0);
+    expect(content).not.toBe("custom skill\n");
+    expect(content).toMatch(/name: agentkit/);
+  });
+
+  test("init --yes does not install skill files", () => {
+    const target = tempDir();
+    const result = run(["init", target, "--yes"]);
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(path.join(target, ".agents", "skills", "agentkit", "SKILL.md"))).toBe(false);
+    expect(fs.existsSync(path.join(target, "AGENTS.md"))).toBe(true);
+  });
+
+  test("invalid installMode in config exits non-zero", () => {
+    const target = tempDir();
+    writeConfig(target, {
+      installMode: "hybrid",
+    });
+
+    const result = run(["init", target, "--yes"]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/Unknown install mode "hybrid"/);
+  });
+
+  test("update on skill-path repo prints message and makes no file changes", () => {
+    const target = tempDir();
+    writeConfig(target, {
+      installMode: "skill",
+    });
+    const agentsPath = path.join(target, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "existing guidance\n");
+
+    const result = run(["update", target]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/installMode: skill/);
+    expect(fs.readFileSync(agentsPath, "utf8")).toBe("existing guidance\n");
   });
 });

@@ -12,10 +12,10 @@ AgentKit CLI (`thomas-agentkit`) is gaining npm downloads and successfully boots
 
 - Template installs require upfront answers (preset, template set, personalization) before files exist, even when an agent could infer stack and commands from the repository.
 - Users who prefer agent-guided workflows have no first-class path — only the traditional copy-templates flow.
-- There is no bundled Agent Skill that teaches agents how to create and maintain AgentKit guidance files using repository context.
+- There is no bundled Agent Skill that teaches agents how to create and maintain AgentKit guidance files or help users understand completed codebase changes using repository context.
 - As the community grows, AgentKit needs a second bootstrap path that installs a skill into the project, without breaking existing template behavior.
 
-Users need a clear split between **CLI bootstrap** (one-time: copy templates *or* install skill) and **skill workflows** (ongoing in the agent: `agentkit init`, `agentkit update`, `agentkit doctor`).
+Users need a clear split between **CLI bootstrap** (one-time: copy templates *or* install skill) and **skill workflows** (ongoing in the agent: `agentkit init`, `agentkit update`, `agentkit doctor`, `agentkit repair`, `agentkit learn`).
 
 ## Solution
 
@@ -40,15 +40,16 @@ After `agentkit skill install`, users invoke workflows **through the bundled ski
 | `agentkit init` | Agent creates guidance `.md` files from repo context (first-time or missing files) |
 | `agentkit update` | Agent syncs guidance after code or package changes |
 | `agentkit doctor` | Agent audits guidance against best practices |
+| `agentkit repair` | Agent repairs guidance structure after explicit request |
+| `agentkit learn` | Agent teaches recent codebase changes and checks user understanding |
 
-These are **routes inside one skill** (`SKILL.md` router → `references/init.md`, `references/update.md`, `references/doctor.md`), not separate skills and not CLI commands on the skill path.
+These are **routes inside one skill** (`SKILL.md` router → `references/init.md`, `references/update.md`, `references/doctor.md`, `references/repair.md`, `references/learn.md`), not separate skills and not CLI commands on the skill path.
 
 ### v0.9.x scope
 
 - CLI: `agentkit skill install` + interactive bootstrap choice
-- Skill: `init` workflow only (`references/init.md`, `references/file-contract.md`)
+- Skill: routed workflows for `init`, `update`, `doctor`, `repair`, and `learn`
 - Codex only (`.agents/skills/agentkit/`)
-- `agentkit update` / `agentkit doctor` skill workflows deferred
 - CLI `agentkit doctor` not in scope
 
 ### Naming contract (critical)
@@ -61,6 +62,8 @@ These are **routes inside one skill** (`SKILL.md` router → `references/init.md
 | `agentkit update` (CLI) | Terminal | Template-path managed-block merge |
 | `agentkit update` (skill) | Agent | Syncs guidance to repo changes |
 | `agentkit doctor` (skill) | Agent | Audits guidance quality |
+| `agentkit repair` (skill) | Agent | Repairs guidance structure after explicit request |
+| `agentkit learn` (skill) | Agent | Teaches recent changes and checks understanding |
 
 **Never use CLI `agentkit init` for skill installation.**
 
@@ -102,35 +105,39 @@ These are **routes inside one skill** (`SKILL.md` router → `references/init.md
 
 16. As a developer whose **skill** `agentkit init` partially completed, I want to re-invoke the skill workflow to finish missing files, so that init can span multiple agent sessions.
 
-17. As an agent using the AgentKit skill, I want a router in `SKILL.md` that directs me to the correct reference (`init`, `update`, or `doctor`) based on what the user asked, so that I follow one consistent skill.
+17. As an agent using the AgentKit skill, I want a router in `SKILL.md` that directs me to the correct reference (`init`, `update`, `doctor`, `repair`, or `learn`) based on what the user asked, so that I follow one consistent skill.
 
 18. As an agent using the AgentKit skill, I want explicit non-negotiables (preserve user edits, no destructive commands, AGENTS.md as source of truth), so that workflows do not damage the repository.
 
-19. As a developer on the skill path (future), I want to invoke **skill** `agentkit update` after meaningful code changes, so that guidance stays aligned with the repo without me editing `.md` files manually.
+19. As a developer on the skill path, I want to invoke **skill** `agentkit update` after meaningful code changes, so that guidance stays aligned with the repo without me editing `.md` files manually.
 
-20. As a developer on the skill path (future), I want to invoke **skill** `agentkit doctor` to audit guidance quality, so that I catch stale placeholders, wrong commands, or missing companion files.
+20. As a developer on the skill path, I want to invoke **skill** `agentkit doctor` to audit guidance quality, so that I catch stale placeholders, wrong commands, or missing companion files.
+
+21. As a developer on the skill path, I want to invoke **skill** `agentkit repair` after explicit structural repair requests, so that malformed managed blocks, thick adapters, or unmanaged guidance can be made safe for updates.
+
+22. As a developer after an agent session, I want to invoke **skill** `agentkit learn`, so that I can understand what changed, why it changed, how the code works, what edge cases matter, and what impact the work has.
 
 ### Config, compatibility, and maintenance
 
-21. As a developer, I want `installMode` recorded in config (`template` | `skill`), so that tooling knows how the repo was bootstrapped.
+23. As a developer, I want `installMode` recorded in config (`template` | `skill`), so that tooling knows how the repo was bootstrapped.
 
-22. As a developer, I want `agentkitVersion` recorded at skill install time, so that future workflows can detect version drift.
+24. As a developer, I want `agentkitVersion` recorded at skill install time, so that future workflows can detect version drift.
 
-23. As a template-path user upgrading `thomas-agentkit`, I want CLI `agentkit update` to keep merging managed blocks the same way, so that package upgrades stay predictable.
+25. As a template-path user upgrading `thomas-agentkit`, I want CLI `agentkit update` to keep merging managed blocks the same way, so that package upgrades stay predictable.
 
-24. As a skill-path user (future), I want **skill** `agentkit update` — not CLI `agentkit update` — to be the primary maintenance path, so that guidance sync uses repo context.
+26. As a skill-path user, I want **skill** `agentkit update` — not CLI `agentkit update` — to be the primary maintenance path, so that guidance sync uses repo context.
 
-25. As an existing template-path user, I want zero changes to `agentkit init` and `agentkit update` CLI behavior, so that npm downloads and current workflows remain valid.
+27. As an existing template-path user, I want zero changes to `agentkit init` and `agentkit update` CLI behavior, so that npm downloads and current workflows remain valid.
 
-26. As a maintainer, I want the bundled skill validated against the Agent Skills specification, so that discovery and frontmatter remain compatible.
+28. As a maintainer, I want the bundled skill validated against the Agent Skills specification, so that discovery and frontmatter remain compatible.
 
-27. As a maintainer, I want Vitest coverage for `agentkit skill install`, so that regressions in skill copying and config writing are caught before publish.
+29. As a maintainer, I want Vitest coverage for `agentkit skill install`, so that regressions in skill copying and config writing are caught before publish.
 
-28. As a maintainer, I want the skill description optimized for agent discovery (triggers and symptoms, not workflow summary), so that agents load the full skill body.
+30. As a maintainer, I want the skill description optimized for agent discovery (triggers and symptoms, not workflow summary), so that agents load the full skill body.
 
-29. As a future Cursor or Claude Code user, I want the skill install architecture to support additional tool paths later, so that v1 Codex-only scope does not block expansion.
+31. As a future Cursor or Claude Code user, I want the skill install architecture to support additional tool paths later, so that v1 Codex-only scope does not block expansion.
 
-30. As a project owner, I want project-local skill installation, so that AgentKit setup is versioned with the repository.
+32. As a project owner, I want project-local skill installation, so that AgentKit setup is versioned with the repository.
 
 ## Implementation Decisions
 
@@ -140,7 +147,7 @@ These are **routes inside one skill** (`SKILL.md` router → `references/init.md
 
 - New CLI command: `agentkit skill install`
 - Interactive bootstrap choice: templates (`agentkit init`) vs skill (`agentkit skill install`)
-- Bundled `agentkit` Agent Skill with router + `references/init.md` + `references/file-contract.md`
+- Bundled `agentkit` Agent Skill with router + `references/init.md`, `references/update.md`, `references/doctor.md`, `references/repair.md`, `references/learn.md`, and `references/file-contract.md`
 - Skill install to Codex: `.agents/skills/agentkit/`
 - Extended `agentkit.config.json`: `installMode`, `agentkitVersion`
 - README clarifying CLI vs skill naming
@@ -148,7 +155,6 @@ These are **routes inside one skill** (`SKILL.md` router → `references/init.md
 
 **Out of scope (deferred):**
 
-- Skill workflows: `agentkit update`, `agentkit doctor` (`references/update.md`, `references/doctor.md`)
 - CLI `agentkit doctor`
 - Template-to-skill upgrade for existing repos
 - Cursor, Claude Code, Copilot skill install paths
@@ -172,8 +178,10 @@ These are **routes inside one skill** (`SKILL.md` router → `references/init.md
 │                  ONGOING WORK (AGENT + SKILL)                │
 ├─────────────────────────────────────────────────────────────┤
 │  agentkit init   → references/init.md    → create .md files │
-│  agentkit update → references/update.md  → sync guidance    │  (deferred)
-│  agentkit doctor → references/doctor.md  → audit guidance   │  (deferred)
+│  agentkit update → references/update.md  → sync guidance    │
+│  agentkit doctor → references/doctor.md  → audit guidance   │
+│  agentkit repair → references/repair.md  → repair structure │
+│  agentkit learn  → references/learn.md   → teach changes    │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -205,22 +213,26 @@ Existing configs without `installMode` → treat as `"template"`.
 
 ```
 templates/skills/agentkit/
-├── SKILL.md                      # router to init | update | doctor
+├── SKILL.md                      # router to init | update | doctor | repair | learn
+├── agents/
+│   └── openai.yaml
 ├── references/
-│   ├── init.md                   # v1
-│   ├── file-contract.md          # v1
-│   ├── update.md                 # deferred
-│   └── doctor.md                 # deferred
-└── assets/
-    └── templates/                # mirror of bundled CLI templates
+│   ├── init.md
+│   ├── file-contract.md
+│   ├── update.md
+│   ├── doctor.md
+│   ├── repair.md
+│   └── learn.md
 ```
 
 **SKILL.md router** (conceptual):
 
 ```
 User asks for agentkit init     → references/init.md
-User asks for agentkit update   → references/update.md (stub: "not yet available" in v1)
-User asks for agentkit doctor   → references/doctor.md (stub: "not yet available" in v1)
+User asks for agentkit update   → references/update.md
+User asks for agentkit doctor   → references/doctor.md
+User asks for agentkit repair   → references/repair.md
+User asks for agentkit learn    → references/learn.md
 Guidance files missing/stale    → references/init.md or update.md based on install state
 Before any file edit            → references/file-contract.md
 ```
@@ -253,11 +265,11 @@ Before any file edit            → references/file-contract.md
 
 #### 4. Bundled AgentKit skill
 
-**Responsibility:** Agent-side workflows for init / update / doctor.
+**Responsibility:** Agent-side workflows for init / update / doctor / repair / learn.
 
-**v1:** Ship `init` workflow; router stubs for update/doctor pointing to future references.
+**v1:** Ship routed workflows for guidance creation, sync, audit, repair, and learning.
 
-**Validation:** `skills-ref validate` in CI; subagent pressure tests for init workflow.
+**Validation:** `skills-ref validate` in CI; subagent pressure tests for shipped workflows.
 
 #### 5. Bootstrap UX (CLI prompts)
 
@@ -319,10 +331,13 @@ Skill under `templates/skills/` inside existing `files` whitelist. No new depend
 - **Skill** `agentkit init` on repo with `package.json` — no unrelated overwrites
 - **Skill** `agentkit init` — managed blocks present
 - **Skill** `agentkit init` — commands match `package.json` scripts, not invented
+- **Skill** `agentkit update` — updates only managed guidance and creates configured missing files
+- **Skill** `agentkit doctor` — reports findings without editing by default
+- **Skill** `agentkit repair` — repairs only clear structural issues after explicit request
+- **Skill** `agentkit learn` — teaches recent changes without writing files by default
 
 ## Out of Scope
 
-- Skill workflows `agentkit update` and `agentkit doctor` (v1 ships router stubs only)
 - CLI `agentkit doctor`
 - Template-to-skill upgrade
 - Cursor / Claude / Copilot skill install paths
@@ -334,7 +349,7 @@ Skill under `templates/skills/` inside existing `files` whitelist. No new depend
 
 ### Why one skill, not three
 
-`init`, `update`, and `doctor` share the same file contract. One `agentkit` skill with a router and `references/` avoids duplicated contracts and multiple installs.
+`init`, `update`, `doctor`, `repair`, and `learn` share one product surface. One `agentkit` skill with a router and `references/` avoids duplicated contracts and multiple installs.
 
 ### Why CLI `agentkit init` stays template-only
 
@@ -354,8 +369,8 @@ Keeping CLI `agentkit init` template-only prevents overloading one command and m
 
 ### Follow-up issues after v1
 
-1. Skill `agentkit update` workflow (`references/update.md`)
-2. Skill `agentkit doctor` workflow (`references/doctor.md`)
+1. Trigger evals for init, update, doctor, repair, learn, and near-miss prompts
+2. Optional validation scripts for managed blocks, placeholders, and adapter shape
 3. Template-to-skill upgrade
 4. Multi-tool skill install paths
 5. Optional unified `agentkit setup` interactive dispatcher

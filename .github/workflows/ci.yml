@@ -27,5 +27,8 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Validate bundled skill
+        run: npm run validate:skill
+
       - name: Verify package contents
         run: npm pack --dry-run

@@ -11,11 +11,10 @@ Ship two CLI bootstrap paths without breaking existing template behavior:
 1. **Template path** — `agentkit init` copies bundled guidance templates (unchanged).
 2. **Skill path** — `agentkit skill install` copies the bundled `agentkit` Agent Skill and writes config; guidance `.md` files are created later via the skill workflow in an agent session.
 
-One bundled skill (`templates/skills/agentkit/`) with internal routes for `init`, `update`, and `doctor`. v0.9.x ships the **init** workflow only; update/doctor are router stubs.
+One bundled skill (`templates/skills/agentkit/`) with internal routes for `init`, `update`, `doctor`, `repair`, and `learn`. v0.9.x ships routed skill workflows for `/agentkit init`, `/agentkit update`, `/agentkit doctor`, `/agentkit repair`, and `/agentkit learn`.
 
 ## Out of scope for v0.9.x
 
-- Skill workflows: `agentkit update`, `agentkit doctor` (real procedures — stubs only)
 - CLI `agentkit doctor`
 - Template-to-skill upgrade for existing repos
 - Cursor, Claude Code, Copilot skill install paths (Codex only: `.agents/skills/agentkit/`)
@@ -29,11 +28,15 @@ One bundled skill (`templates/skills/agentkit/`) with internal routes for `init`
 ```
 templates/skills/agentkit/
 ├── SKILL.md
+├── agents/
+│   └── openai.yaml
 ├── references/
 │   ├── init.md
 │   ├── file-contract.md
-│   ├── update.md          # stub in v0.9.x
-│   └── doctor.md          # stub in v0.9.x
+│   ├── update.md
+│   ├── doctor.md
+│   ├── repair.md
+│   └── learn.md
 ```
 
 `assets/templates/` mirror of CLI templates is **deferred** — agents read canonical patterns from `references/file-contract.md` and inspect the repo; add mirror only if init evals show agents need byte-level templates.
@@ -72,11 +75,11 @@ Add to `AgentKitConfig`:
 - Existing configs without `installMode` → treat as `"template"`
 - Reject unknown `installMode` values at load time
 
-### 3. `agentkit init` — minimal change
+### 3. `agentkit init` — unified interactive dispatcher
 
-- Set `installMode: "template"` when config is written (`--write-config` or interactive write)
-- Interactive TTY: light cross-prompt — "Copy templates (this command) or install skill instead? (`agentkit skill install`)"
-- `--yes` continues to mean template install with defaults — **no** skill prompt
+- Set `installMode: "template"` when config is written via `--write-config`
+- Interactive TTY: first prompt chooses **copy templates** or **install skill**, then shared setup prompts, then executes the selected path in the same session
+- `--yes` continues to mean template install with defaults — **no** bootstrap path prompt
 
 ### 4. `agentkit update` — skill-path guard
 
@@ -91,7 +94,7 @@ Run agentkit update in your agent to sync guidance files.
 (CLI agentkit update applies to template-path installs.)
 ```
 
-Skill `agentkit update` workflow is deferred — message may note "coming soon".
+Skill-path projects use agent routes for guidance maintenance; terminal `agentkit update` remains template-path only.
 
 ## Naming contract
 
@@ -101,8 +104,10 @@ Skill `agentkit update` workflow is deferred — message may note "coming soon".
 | `agentkit skill install` | Terminal | Install **skill** + config |
 | `agentkit init` | Agent | Create **guidance files** |
 | `agentkit update` | Terminal | Template-path managed-block merge |
-| `agentkit update` | Agent | Sync guidance (deferred) |
-| `agentkit doctor` | Agent | Audit guidance (deferred) |
+| `agentkit update` | Agent | Sync guidance to repo changes |
+| `agentkit doctor` | Agent | Audit guidance quality |
+| `agentkit repair` | Agent | Repair guidance structure after explicit request |
+| `agentkit learn` | Agent | Teach recent codebase changes and check understanding |
 
 **Never use CLI `agentkit init` for skill installation.**
 
@@ -120,8 +125,7 @@ The skill will create AGENTS.md and companion files from your repository.
 
 ## Bundled skill v1 scope
 
-- **Ship:** `SKILL.md` router, `references/init.md`, `references/file-contract.md`
-- **Stub:** `references/update.md`, `references/doctor.md`
+- **Ship:** `SKILL.md` router, `references/init.md`, `references/update.md`, `references/doctor.md`, `references/repair.md`, `references/learn.md`, `references/file-contract.md`, and `agents/openai.yaml`
 - **Validate:** `skills-ref validate ./templates/skills/agentkit` in CI
 - Authoring detail: [agentkit-skill-authoring.md](./agentkit-skill-authoring.md)
 
@@ -140,6 +144,10 @@ Pressure tests (pre-release, subagent):
 - Skill `agentkit init` on repo with `package.json` — no unrelated overwrites
 - Skill `agentkit init` — managed blocks present
 - Skill `agentkit init` — commands match `package.json` scripts, not invented
+- Skill `agentkit update` — updates only managed blocks and creates configured missing files
+- Skill `agentkit doctor` — reports findings without editing by default
+- Skill `agentkit repair` — repairs malformed blocks or thick adapters only after explicit request
+- Skill `agentkit learn` — teaches recent changes without writing files by default
 
 ## Definition of done (v0.9.x)
 
@@ -149,14 +157,15 @@ Pressure tests (pre-release, subagent):
 - [ ] `agentkit init` behavior unchanged for template path; sets `installMode: template` when config written
 - [ ] CLI `agentkit update` on skill-path repo prints message, exits 0, no file writes
 - [ ] Bundled skill passes `skills-ref validate`
+- [ ] Skill routes exist for init, update, doctor, repair, and learn
 - [ ] Vitest integration tests cover skill install and config
 - [ ] README documents bootstrap paths and naming contract
 - [ ] npm publish includes `templates/skills/` via existing `files` whitelist
 
 ## Follow-up after v0.9.x
 
-1. Skill `agentkit update` workflow (`references/update.md`)
-2. Skill `agentkit doctor` workflow (`references/doctor.md`)
+1. Trigger evals for init, update, doctor, repair, learn, and near-miss prompts
+2. Optional validation scripts for managed blocks, placeholders, and adapter shape
 3. Template-to-skill upgrade
 4. Multi-tool skill install paths (Cursor, Claude Code)
 5. Optional unified `agentkit setup` interactive dispatcher

@@ -15,7 +15,7 @@ AgentKit supports two first-time setup paths. Pick one — they are not intercha
 | **CLI command** | `agentkit init` | `agentkit skill install` |
 | **When to use** | Immediate offline setup; you want files now | Agent-guided setup; guidance created from your repo in a later session |
 | **What you get** | Bundled `.md` templates copied into the project | Bundled `agentkit` Agent Skill installed; no guidance `.md` files yet |
-| **Ongoing maintenance** | CLI `agentkit update` (managed-block merge) | Skill `agentkit update` in your agent (coming in a future release) |
+| **Ongoing maintenance** | CLI `agentkit update` (managed-block merge) | Skill routes in your agent: `/agentkit update`, `/agentkit doctor`, `/agentkit repair`, `/agentkit learn` |
 | **Config** | `installMode: template` | `installMode: skill` |
 
 ```text
@@ -24,12 +24,14 @@ FIRST-TIME SETUP (terminal)
 └── agentkit skill install     → copies skill to .agents/skills/agentkit/, installMode: skill
 
 ONGOING WORK (agent + skill path only)
-├── agentkit init   → agent creates AGENTS.md and companion files from repo context
-├── agentkit update → agent syncs guidance after code changes (coming soon)
-└── agentkit doctor → agent audits guidance quality (coming soon)
+├── /agentkit init   → agent creates AGENTS.md and companion files from repo context
+├── /agentkit update → agent syncs guidance after code changes
+├── /agentkit doctor → agent audits guidance quality
+├── /agentkit repair → agent repairs guidance structure when explicitly requested
+└── /agentkit learn  → agent teaches what changed after implementation
 ```
 
-> `agentkit skill install` ships in v0.9.x. Earlier package versions support the template path only.
+Interactive `agentkit init` asks whether to copy templates or install the AgentKit skill, then runs the chosen path in the same session.
 
 ## Usage
 
@@ -43,7 +45,7 @@ npx thomas-agentkit init
 
 ### Skill path
 
-Install the bundled AgentKit skill (v0.9.x+). This does **not** create `AGENTS.md` or other guidance files — run `agentkit init` in your agent afterward:
+Install the bundled AgentKit skill (v0.9.x+). This does **not** create `AGENTS.md` or other guidance files — run `/agentkit init` in your agent afterward:
 
 ```bash
 npx thomas-agentkit skill install
@@ -70,6 +72,14 @@ Wrote agentkit.config.json (installMode: skill)
 Next step: In your agent, run agentkit init.
 The skill will create AGENTS.md and companion files from your repository.
 ```
+
+After skill install, use the project-local skill from your agent:
+
+- `/agentkit init` creates missing guidance files from repository context.
+- `/agentkit update` syncs managed guidance with current repository context.
+- `/agentkit doctor` audits guidance quality without editing by default.
+- `/agentkit repair` repairs guidance structure, such as malformed managed blocks or thick AI adapters, after an explicit request.
+- `/agentkit learn` teaches recent codebase changes, design decisions, edge cases, validation, and impact without writing files by default.
 
 If the package is installed in a project, use the local `agentkit` binary:
 
@@ -259,18 +269,20 @@ The same names mean different things in the terminal vs in an agent session:
 | `agentkit skill install` | Terminal | Install **bundled skill** + config |
 | `agentkit init` | Agent | Create **guidance files** (skill path) |
 | `agentkit update` | Terminal | Template-path managed-block merge only |
-| `agentkit update` | Agent | Sync guidance to repo changes (coming soon) |
-| `agentkit doctor` | Agent | Audit guidance quality (coming soon) |
+| `agentkit update` | Agent | Sync guidance to repo changes |
+| `agentkit doctor` | Agent | Audit guidance quality |
+| `agentkit repair` | Agent | Repair guidance structure after explicit request |
+| `agentkit learn` | Agent | Teach recent codebase changes and check understanding |
 
 Never use CLI `agentkit init` for skill installation.
 
-On skill-path repos (`installMode: skill`), CLI `agentkit update` prints an informational message and does not modify guidance files. Use skill `agentkit update` in your agent when that workflow ships.
+On skill-path repos (`installMode: skill`), CLI `agentkit update` prints an informational message and does not modify guidance files. Use `/agentkit update` in your agent for skill-path guidance sync.
 
 ## CLI Reference
 
 ```text
 agentkit init [target] [--force] [--dry-run] [--interactive] [--yes] [--write-config] [--preset <name>] [--design-system <name>]
-agentkit skill install [target] [--force] [--dry-run] [--yes] [--write-config] [--preset <name>] [--design-system <name>]
+agentkit skill install [target] [--force] [--dry-run] [--yes] [--preset <name>] [--design-system <name>]
 agentkit update [target] [--dry-run] [--preset <name>] [--design-system <name>]
 agentkit --list
 agentkit --list-presets
@@ -285,7 +297,7 @@ Options:
 - `--dry-run`: print planned changes without writing files
 - `-i, --interactive`: explicitly prompt for install options
 - `-y, --yes`: accept defaults without prompts
-- `--write-config`: write resolved install defaults to `agentkit.config.json`
+- `--write-config`: write resolved template install defaults to `agentkit.config.json`
 - `--preset <name>`: install stack-specific guidance (`next`, `sveltekit`, `express`, `convex`, `fullstack`)
 - `--design-system <name>`: design system variant for `DESIGN-SYSTEM.md` (`linear`, `apple`)
 - `--list`: list bundled template files
