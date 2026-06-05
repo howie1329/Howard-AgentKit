@@ -190,7 +190,7 @@ List available presets:
 npx thomas-agentkit --list-presets
 ```
 
-List bundled design systems (source variants for `DESIGN-SYSTEM.md`):
+List bundled design baselines (source variants for `DESIGN.md`):
 
 ```bash
 npx thomas-agentkit --list-design-systems
@@ -204,7 +204,7 @@ AgentKit can copy these bundled files into the target project:
 - `CHANGE-EXPLANATION.md`
 - `CLAUDE.md`
 - `CODE-QUALITY.md`
-- `DESIGN-SYSTEM.md`
+- `DESIGN.md`
 - `IMPLEMENTATION-BRIEF-TEMPLATE.md`
 - `PRD-TEMPLATE.md`
 - `SECURITY-CHECKLIST.md`
@@ -216,7 +216,7 @@ AgentKit can copy these bundled files into the target project:
 
 When a preset is selected, AgentKit also installs `STACK.md` and adds a note in `AGENTS.md` telling agents to read it before changing stack-specific code.
 
-Bundled design system guidance is stored under `templates/design-systems/` in this repository (for example `linear.md`, `apple.md`). The CLI installs the chosen variant into `DESIGN-SYSTEM.md` in the target project; variant paths are not separate install targets.
+Bundled design baselines are stored under `templates/design-systems/` in this repository (`linear`, `apple`, `cursor`, `framer`, `notion`, `warp`). The CLI installs the chosen variant into `DESIGN.md` in the target project; variant paths are not separate install targets. The bundled AgentKit skill also ships copies under `references/design-baselines/` for `/agentkit design`.
 
 Existing files are skipped by default so local edits are preserved. Use `--force` when you intentionally want to refresh files from the bundled package version.
 
@@ -232,12 +232,12 @@ Generated content
 
 Interactive personalization only applies during `agentkit init` when files are created or overwritten. It does not write a config file unless `--write-config` is passed, and `agentkit update` does not reapply personalized values.
 
-`agentkit.config.json` can set `preset`, `templateSet`, `designSystem`, `aiTools`, and `personalization` defaults. `templateSet` may be `minimal`, `standard`, or `full`; `designSystem` selects which bundled design-system variant fills `DESIGN-SYSTEM.md` (`linear` or `apple`); `aiTools` may include `codex`, `cursor`, `claude`, and `copilot`. `agentkit update` uses config `preset` and `designSystem` and continues to update all managed bundled templates.
+`agentkit.config.json` can set `preset`, `templateSet`, `designSystem`, `aiTools`, and `personalization` defaults. `templateSet` may be `minimal`, `standard`, or `full`; `designSystem` selects which bundled baseline fills `DESIGN.md` (`linear`, `apple`, `cursor`, `framer`, `notion`, or `warp`); `aiTools` may include `codex`, `cursor`, `claude`, and `copilot`. `agentkit update` uses config `preset` and `designSystem` and continues to update all managed bundled templates.
 
 Template set mappings:
 
 - `minimal`: `AGENTS.md`
-- `standard`: `AGENTS.md`, `CHANGE-EXPLANATION.md`, `CODE-QUALITY.md`, `DESIGN-SYSTEM.md`, `.github/pull_request_template.md`
+- `standard`: `AGENTS.md`, `CHANGE-EXPLANATION.md`, `CODE-QUALITY.md`, `DESIGN.md`, `.github/pull_request_template.md`
 - `full`: all bundled templates, including AI tool adapters and planning/testing/security guides
 
 AI tool mappings:
@@ -273,6 +273,7 @@ The same names mean different things in the terminal vs in an agent session:
 | `agentkit doctor` | Agent | Audit guidance quality |
 | `agentkit repair` | Agent | Repair guidance structure after explicit request |
 | `agentkit learn` | Agent | Teach recent codebase changes and check understanding |
+| `agentkit design` | Agent | Create or refresh `DESIGN.md` from a bundled baseline |
 
 Never use CLI `agentkit init` for skill installation.
 
@@ -299,14 +300,14 @@ Options:
 - `-y, --yes`: accept defaults without prompts
 - `--write-config`: write resolved template install defaults to `agentkit.config.json`
 - `--preset <name>`: install stack-specific guidance (`next`, `sveltekit`, `express`, `convex`, `fullstack`)
-- `--design-system <name>`: design system variant for `DESIGN-SYSTEM.md` (`linear`, `apple`)
+- `--design-system <name>`: design baseline for `DESIGN.md` (`linear`, `apple`, `cursor`, `framer`, `notion`, `warp`)
 - `--list`: list bundled template files
 - `--list-presets`: list available presets
 - `--list-design-systems`: list available design systems
 - `-h, --help`: show help
 - `-v, --version`: show package version
 
-For `agentkit update`, `--preset <name>` refreshes preset-specific managed content, including `STACK.md`. `--design-system <name>` refreshes the managed `DESIGN-SYSTEM.md` body from the matching bundled variant.
+For `agentkit update`, `--preset <name>` refreshes preset-specific managed content, including `STACK.md`. `--design-system <name>` refreshes the managed `DESIGN.md` body from the matching bundled baseline.
 
 ## Local Development
 

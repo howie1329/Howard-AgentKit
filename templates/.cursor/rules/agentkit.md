@@ -11,7 +11,7 @@ Use this rule as a repository guidance router for Cursor agents and composer wor
 ## When Relevant
 
 - **File edits (final message):** change-explanation format in `AGENTS.md` and `CHANGE-EXPLANATION.md`.
-- **UI / styling / layout:** `DESIGN-SYSTEM.md` or the project design-system path from `AGENTS.md`.
+- **UI / styling / layout:** `DESIGN.md` or the project design path from `AGENTS.md`.
 - **Review / refactor / dependencies:** `CODE-QUALITY.md`.
 - **Tests / QA strategy:** `TESTING.md` if present.
 - **Auth / secrets / PII:** `SECURITY-CHECKLIST.md` if present.

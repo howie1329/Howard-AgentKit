@@ -112,10 +112,11 @@ File roles:
   - Reference real project commands from `AGENTS.md`
   - Avoid duplicating large command tables
 
-- `DESIGN-SYSTEM.md`
-  - Refresh UI guidance only when a UI/design surface exists or the file is configured
-  - Use configured `designSystem` as a style lens
+- `DESIGN.md`
+  - Refresh UI design spec only when a UI/design surface exists or the file is configured
+  - Use configured `designSystem` baseline; map tokens to project theme
   - Mention current component/style paths when visible
+  - Prefer `/agentkit design` when user wants baseline selection or customization
 
 - `.github/pull_request_template.md`
   - Keep concise and generally useful

@@ -81,7 +81,7 @@ Inventory rules:
   - `AGENTS.md`
   - `CHANGE-EXPLANATION.md`
   - `CODE-QUALITY.md`
-  - `DESIGN-SYSTEM.md`
+  - `DESIGN.md`
   - `.github/pull_request_template.md`
 
 - `full`
@@ -138,10 +138,11 @@ File roles:
   - Reference real project commands from `AGENTS.md`
   - Avoid duplicating large command tables
 
-- `DESIGN-SYSTEM.md`
-  - Only include design guidance appropriate to the detected UI surface
-  - Use configured `designSystem` as a style lens
+- `DESIGN.md`
+  - Only include when UI/design surfaces exist or user requests design guidance
+  - Start from configured `designSystem` baseline when set; map tokens to project theme
   - Mention real component/style paths when visible
+  - Prefer `/agentkit design` when user wants baseline selection or customization
 
 - `.github/pull_request_template.md`
   - Keep concise and generally useful

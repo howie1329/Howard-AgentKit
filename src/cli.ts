@@ -18,7 +18,7 @@ type PresetName = "next" | "sveltekit" | "express" | "convex" | "fullstack";
 type ProjectTypeName = PresetName | "generic";
 type AiToolName = "codex" | "cursor" | "claude" | "copilot";
 type TemplateSetName = "minimal" | "standard" | "full";
-type DesignSystemName = "linear" | "apple";
+type DesignSystemName = "linear" | "apple" | "cursor" | "framer" | "notion" | "warp";
 export type InstallMode = "template" | "skill";
 type BootstrapPath = InstallMode;
 
@@ -93,11 +93,22 @@ const validPresets: PresetName[] = ["next", "sveltekit", "express", "convex", "f
 const validProjectTypes: ProjectTypeName[] = ["generic", ...validPresets];
 const validAiTools: AiToolName[] = ["codex", "cursor", "claude", "copilot"];
 const validTemplateSets: TemplateSetName[] = ["minimal", "standard", "full"];
-const validDesignSystems: DesignSystemName[] = ["linear", "apple"];
+const validDesignSystems: DesignSystemName[] = [
+  "linear",
+  "apple",
+  "cursor",
+  "framer",
+  "notion",
+  "warp",
+];
 
 const designSystemLabels: Record<DesignSystemName, string> = {
-  linear: "Linear-inspired",
-  apple: "Apple-inspired",
+  linear: "Linear",
+  apple: "Apple",
+  cursor: "Cursor",
+  framer: "Framer",
+  notion: "Notion",
+  warp: "Warp",
 };
 const configFileName = "agentkit.config.json";
 const configKeys = [
@@ -143,7 +154,7 @@ const templateSetFiles: Record<TemplateSetName, string[]> = {
     "AGENTS.md",
     "CHANGE-EXPLANATION.md",
     "CODE-QUALITY.md",
-    "DESIGN-SYSTEM.md",
+    "DESIGN.md",
     ".github/pull_request_template.md",
   ],
   full: [],
@@ -251,11 +262,9 @@ async function collectInstallableTemplatePaths(dir: string, base: string): Promi
 
 async function getTemplateFiles(): Promise<string[]> {
   const discovered = await collectInstallableTemplatePaths(templatesDir, templatesDir);
-  const withDesignSystem = discovered.includes("DESIGN-SYSTEM.md")
-    ? discovered
-    : [...discovered, "DESIGN-SYSTEM.md"];
+  const withDesign = discovered.includes("DESIGN.md") ? discovered : [...discovered, "DESIGN.md"];
 
-  return withDesignSystem.sort();
+  return withDesign.sort();
 }
 
 function isPresetName(value: string): value is PresetName {
@@ -745,7 +754,7 @@ export function personalizeTemplateContent(
 
   let personalized = content;
 
-  if (file === "AGENTS.md" || file === "DESIGN-SYSTEM.md") {
+  if (file === "AGENTS.md" || file === "DESIGN.md") {
     personalized = replaceIfProvided(personalized, "[Project Name]", values.projectName);
   }
 
@@ -965,7 +974,7 @@ async function buildTemplateContent(
     return getStackGuidance(preset);
   }
 
-  if (file === "DESIGN-SYSTEM.md") {
+  if (file === "DESIGN.md") {
     const source = path.join(templatesDir, "design-systems", `${designSystem}.md`);
     const content = await readFile(source, "utf8");
     return addStackReference(file, content, preset);
@@ -1359,7 +1368,7 @@ Examples:
     .option("--preset <name>", `install stack-specific guidance (${formatPresetList()})`)
     .option(
       "--design-system <name>",
-      `design system guidance for DESIGN-SYSTEM.md (${formatDesignSystemList()})`,
+      `design baseline for DESIGN.md (${formatDesignSystemList()})`,
     )
     .action(async (target: string, options: InitOptions) => {
       await applyInitConfig(options, await loadConfigForTarget(target));
@@ -1410,7 +1419,7 @@ Examples:
     .option("--preset <name>", `update stack-specific guidance (${formatPresetList()})`)
     .option(
       "--design-system <name>",
-      `design system guidance for DESIGN-SYSTEM.md (${formatDesignSystemList()})`,
+      `design baseline for DESIGN.md (${formatDesignSystemList()})`,
     )
     .action(async (target: string, options: UpdateOptions) => {
       const config = await loadConfigForTarget(target);
