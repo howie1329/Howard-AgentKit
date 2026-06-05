@@ -25,9 +25,12 @@ const packageJson = JSON.parse(
 
 const expectedSkillFiles = [
   "SKILL.md",
+  "agents/openai.yaml",
   "references/doctor.md",
   "references/file-contract.md",
   "references/init.md",
+  "references/learn.md",
+  "references/repair.md",
   "references/update.md",
 ];
 
@@ -175,6 +178,17 @@ describe("agentkit CLI", () => {
     }
     expect(fs.existsSync(path.join(templatesDir, "design-systems/linear.md"))).toBe(true);
     expect(fs.existsSync(path.join(templatesDir, "design-systems/apple.md"))).toBe(true);
+  });
+
+  test("skill route references exist", () => {
+    const skillRoot = path.join(templatesDir, "skills", "agentkit");
+    const skill = fs.readFileSync(path.join(skillRoot, "SKILL.md"), "utf8");
+    const references = [...skill.matchAll(/`(references\/[^`]+\.md)`/g)].map((match) => match[1]);
+
+    expect(references.length).toBeGreaterThan(0);
+    for (const reference of references) {
+      expect(fs.existsSync(path.join(skillRoot, reference)), reference).toBe(true);
+    }
   });
 
   test("maps project types to presets", () => {
@@ -970,6 +984,9 @@ describe("agentkit CLI", () => {
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(target, ".agents"))).toBe(false);
     expect(result.stdout).toMatch(/Would install AgentKit skill/);
+    expect(result.stdout).toMatch(/agents\/openai\.yaml/);
+    expect(result.stdout).toMatch(/references\/learn\.md/);
+    expect(result.stdout).toMatch(/references\/repair\.md/);
     expect(result.stdout).toMatch(/Would create: .*agentkit\.config\.json/);
   });
 

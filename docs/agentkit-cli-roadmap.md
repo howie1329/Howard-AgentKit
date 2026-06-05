@@ -14,9 +14,9 @@ The current codebase has one compact CLI file, recursive template installation, 
 - Placeholder replacement is supported during install for repository-level templates.
 - `agentkit.config.json` supports install defaults for presets, template sets, AI tools, design systems, and personalization.
 - Package metadata, release docs, and the `files` publishing whitelist are in place.
-- Skills path (v0.9.0): `agentkit skill install`, unified interactive `agentkit init` bootstrap dispatcher, `installMode` / `agentkitVersion` config, bundled `agentkit` skill, `skills-ref` CI validation.
+- Skills path (v0.9.0): `agentkit skill install`, unified interactive `agentkit init` bootstrap dispatcher, `installMode` / `agentkitVersion` config, bundled `agentkit` skill with init/update/doctor/repair/learn routes, `skills-ref` CI validation.
 
-**Deferred:** skill `agentkit update` and `agentkit doctor` workflows, multi-tool skill install paths (Cursor, Claude Code), template-to-skill upgrade.
+**Deferred:** trigger evals, optional validation scripts, multi-tool skill install paths (Cursor, Claude Code), template-to-skill upgrade.
 
 ### Template Selection
 

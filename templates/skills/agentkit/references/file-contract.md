@@ -1,6 +1,8 @@
 # AgentKit File Contract
 
-Read this before creating or editing any AgentKit-managed guidance file.
+Read this before creating, updating, auditing, or repairing any AgentKit-managed guidance file.
+
+This contract is the shared rulebook for AgentKit guidance-edit workflows. Route files define procedure; this file defines the invariants every route must preserve.
 
 ## Config
 
@@ -8,23 +10,33 @@ Read `agentkit.config.json` from the repository root when present:
 
 | Field | Use |
 | --- | --- |
-| `installMode` | `"skill"` confirms skill-path project |
-| `preset` | Whether to create `STACK.md` and stack-specific rules |
-| `templateSet` | `minimal`, `standard`, or `full` — determines file inventory |
-| `designSystem` | `linear` or `apple` — variant for `DESIGN-SYSTEM.md` body |
+| `installMode` | `"skill"` confirms a skill-path project; missing values are treated as template-path unless the user explicitly invokes the skill workflow |
+| `agentkitVersion` | Package version at skill install; informational |
+| `templateSet` | `minimal`, `standard`, or `full`; determines configured guidance inventory |
+| `preset` | Stack preset (`next`, `sveltekit`, `express`, `convex`, `fullstack`) used for `STACK.md` |
 | `aiTools` | Which thin adapter files to create (`codex`, `cursor`, `claude`, `copilot`) |
-| `personalization` | Defaults for project name, commands, paths — override with repo facts when available |
-| `agentkitVersion` | Package version at skill install — informational |
+| `designSystem` | `linear` or `apple`; style lens for `DESIGN-SYSTEM.md` |
+| `personalization` | Fallback defaults for project name, commands, and paths; repo facts win when available |
 
-Configs without `installMode` are treated as template-path installs.
+Prefer repository facts over config personalization. Use config values as defaults, not as a reason to ignore visible codebase reality.
 
-## File inventory by template set
+## Route Behavior
 
-### minimal
+- `agentkit init`: create missing configured guidance files from repo context; skip existing files by default.
+- `agentkit update`: refresh valid AgentKit managed blocks and create missing configured files; skip unmanaged files by default.
+- `agentkit doctor`: audit guidance quality and report findings; do not edit by default.
+- `agentkit learn`: teach recent codebase changes; do not edit or create files by default.
+- Refresh, conversion, repair, or wholesale regeneration requires an explicit user request.
+
+## File Inventory
+
+### Template sets
+
+`minimal`:
 
 - `AGENTS.md`
 
-### standard
+`standard`:
 
 - `AGENTS.md`
 - `CHANGE-EXPLANATION.md`
@@ -32,34 +44,54 @@ Configs without `installMode` are treated as template-path installs.
 - `DESIGN-SYSTEM.md`
 - `.github/pull_request_template.md`
 
-### full
-
-All bundled guidance templates, including:
+`full`:
 
 - Everything in `standard`
-- `CLAUDE.md`, `.cursor/rules/agentkit.md`, `.github/copilot-instructions.md` (when in `aiTools` or full set)
-- `TESTING.md`, `SECURITY-CHECKLIST.md`, `WORKFLOWS.md`
-- `PRD-TEMPLATE.md`, `IMPLEMENTATION-BRIEF-TEMPLATE.md`
+- `TESTING.md`
+- `SECURITY-CHECKLIST.md`
+- `WORKFLOWS.md`
+- `PRD-TEMPLATE.md`
+- `IMPLEMENTATION-BRIEF-TEMPLATE.md`
 
-### AI tool adapters (additive)
+### AI tool adapters
+
+Adapters are additive and controlled by `aiTools` or explicit user request. Do not create adapters for unselected tools just because `templateSet` is `full`.
 
 | Tool | File |
 | --- | --- |
-| `codex` | Uses `AGENTS.md` directly |
+| `codex` | Uses `AGENTS.md` directly; no adapter file |
 | `cursor` | `.cursor/rules/agentkit.md` |
 | `claude` | `CLAUDE.md` |
 | `copilot` | `.github/copilot-instructions.md` |
 
-Adapters are thin: point to `AGENTS.md` as source of truth. Do not duplicate operating rules.
+Adapters are thin pointers to `AGENTS.md`. Do not duplicate operating rules.
 
-### Preset addition
+### Stack guidance
 
-When `preset` is set (`next`, `sveltekit`, `express`, `convex`, `fullstack`):
+Create or update `STACK.md` when:
 
-- Create `STACK.md` with stack-specific guidance inferred from the repo
-- Add a note in `AGENTS.md` telling agents to read `STACK.md` before stack-specific changes
+- `preset` is set in config
+- the user explicitly asks for stack guidance
+- stack signals are strong enough to infer a preset confidently
 
-## Managed blocks
+When `STACK.md` exists or will be created, `AGENTS.md` should tell agents to read `STACK.md` before stack-specific changes.
+
+## File Roles
+
+- `AGENTS.md`: source-of-truth router; project purpose, project map, real commands, workflow expectations, companion-doc routing, safety rules, and before-finishing checklist.
+- `STACK.md`: stack-specific guidance based on repo facts and configured or inferred preset.
+- `CHANGE-EXPLANATION.md`: handoff, summary, and change-explanation expectations.
+- `CODE-QUALITY.md`: review, refactor, and maintainability guidance; reference commands from `AGENTS.md`.
+- `DESIGN-SYSTEM.md`: UI/design guidance for detected or configured UI surfaces.
+- `.github/pull_request_template.md`: concise PR checklist; do not over-personalize per-work-item templates.
+- `TESTING.md`: detected test tools, test locations, and real test commands.
+- `SECURITY-CHECKLIST.md`: project-relevant security boundaries such as auth, secrets, API inputs, and data access.
+- `WORKFLOWS.md`: repo-specific planning, review, release, and development workflows.
+- `PRD-TEMPLATE.md`: reusable product requirements template; do not fill with current work.
+- `IMPLEMENTATION-BRIEF-TEMPLATE.md`: reusable implementation planning template; do not fill with current work.
+- AI adapters: thin pointers to `AGENTS.md`.
+
+## Managed Blocks
 
 AgentKit-owned content must be wrapped in paired markers:
 
@@ -71,51 +103,61 @@ Generated content
 
 Rules:
 
-- Use stable ids (e.g. `agents`, `stack`, `design-system`)
-- One start/end pair per managed section
-- User edits **before** or **after** a managed block are preserved — never overwrite them
-- Malformed markers block CLI `agentkit update` on template-path repos — keep pairs valid
+- Use stable ids, such as `agents`, `stack`, `design-system`, `testing`, or `security-checklist`.
+- For new files, usually wrap the full AgentKit-generated body in one top-level managed block.
+- Adapters can be fully managed because they should only point to `AGENTS.md`.
+- Preserve all user edits before and after managed blocks.
+- Replace only valid managed block content during update or refresh.
+- Skip unmanaged existing files unless the user explicitly asks to convert them.
+- Malformed managed block markers block edits to that file; defer and recommend repair.
 
-For new files, wrap the full AgentKit-generated body in a managed block.
+## Repository Inspection
 
-## Repository inspection (required before writing)
+Inspect before writing or auditing:
 
-Inspect before filling guidance:
+1. `package.json` for name, description, and scripts
+2. Lockfiles for package manager
+3. Framework signals, such as `next.config.*`, `svelte.config.*`, `convex/`, `vite.config.*`, `app/`, or `pages/`
+4. Source layout, such as `src/`, `test/`, `tests/`, `docs/`, `.github/`
+5. Test runner and tooling config, such as Vitest, Jest, Playwright, ESLint, TypeScript, or build config
+6. UI/design signals, such as Tailwind config, CSS files, component folders, or design docs
+7. Backend/data/auth signals, such as API routes, schema files, auth packages, or server modules
+8. Existing guidance files and managed block markers
 
-1. `package.json` — name, description, scripts (test, lint, build, dev)
-2. Framework signals — `next.config.*`, `svelte.config.*`, `convex/`, etc.
-3. Existing docs paths — `docs/`, design system files
-4. Test runner — vitest, jest, playwright config files
-5. Package manager — lockfile (`pnpm-lock.yaml`, `package-lock.json`, `bun.lockb`)
+Prefer repo facts over config personalization when they conflict.
 
-Prefer repo facts over config personalization when they conflict. Use config as fallback defaults.
+## Placeholder And Command Rules
 
-## Placeholder replacement
-
-Replace bracket placeholders with real values from the repo:
+Replace bracket placeholders with real values from the repo or omit the placeholder-dependent section:
 
 | Placeholder | Source |
 | --- | --- |
 | `[Project Name]` | `package.json` name or directory name |
 | `[short project description]` | `package.json` description or README first paragraph |
 | `[issue tracker, e.g. Linear or GitHub Issues]` | `personalization.issueTracker` or infer from `.github/` |
-| `[design system path, e.g. docs/design-system.md]` | `personalization.designSystemPath` or `DESIGN-SYSTEM.md` |
-| `[briefs path, e.g. docs/briefs]` | `personalization.briefsPath` or `docs/briefs` |
-| Project Commands table | Real scripts from `package.json` |
+| `[design system path, e.g. docs/design-system.md]` | `personalization.designSystemPath`, existing design docs, or `DESIGN-SYSTEM.md` |
+| `[briefs path, e.g. docs/briefs]` | `personalization.briefsPath`, existing docs path, or omit |
+| Project commands | Real scripts from `package.json` or explicit user/config personalization |
 
-Do not leave `[Project Name]`-style placeholders in shipped guidance.
+Never invent scripts. If a command is not present and not explicitly provided, omit it or describe that it is not configured.
 
-## Edit boundaries
+## Healthy Guidance Criteria
 
-- **Create** missing files from the inventory — skip files that already exist unless user requests refresh
-- **Do not** modify application source code, lockfiles, or CI config during init
-- **Do not** delete user-written content outside managed blocks
-- **Do not** run `git commit`, `git push`, or destructive shell commands
+AgentKit guidance is healthy when:
 
-## Compatibility with CLI update
+- Required files for the configured inventory exist or are intentionally deferred.
+- `AGENTS.md` is present and acts as the router/source of truth.
+- Managed block markers are paired and stable.
+- Commands match `package.json` scripts or explicit user/config personalization.
+- No `[Project Name]`-style placeholders remain in AgentKit-managed content.
+- `AGENTS.md` references only companion files that exist or are being created.
+- `STACK.md` exists when configured or confidently inferred, and `AGENTS.md` references it.
+- AI adapters point to `AGENTS.md` and do not duplicate full operating rules.
+- Generated guidance reflects visible repo facts instead of generic filler.
 
-Guidance created by this skill should be compatible with CLI `agentkit update` on template-path repos and future skill update workflows:
+## Edit Boundaries
 
-- Managed blocks present on AgentKit-owned sections
-- File names match bundled template conventions
-- `AGENTS.md` remains the router and source of truth
+- Do not modify application source code, lockfiles, package manifests, or CI config during AgentKit workflows.
+- Do not delete user-written content outside managed blocks.
+- Do not run `git commit`, `git push`, or destructive shell commands.
+- Docs-only and learn workflows do not require running project test/build commands.

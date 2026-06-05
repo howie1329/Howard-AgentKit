@@ -1,6 +1,6 @@
 # AgentKit Skill Authoring Guide
 
-Internal reference for building the bundled `agentkit` Agent Skill and future workflow routes (`init`, `update`, `doctor`).
+Internal reference for building the bundled `agentkit` Agent Skill and workflow routes (`init`, `update`, `doctor`, `repair`, `learn`).
 
 **Related docs:**
 
@@ -22,12 +22,13 @@ Per the [Agent Skills spec](https://agentskills.io/specification), a skill is a 
 | `scripts/` | Tested executables the agent runs repeatedly |
 | `assets/` | Templates, schemas, static resources |
 | `evals/` | Test cases for systematic iteration (recommended) |
+| `agents/` | OpenAI-facing skill metadata, such as display name and default prompt |
 
 **Skills are:** reusable procedures, project-specific conventions, reference guides agents would get wrong without help.
 
 **Skills are not:** one-off narratives, generic advice the model already knows, or mechanical checks better done by CLI/scripts alone.
 
-For AgentKit, the skill teaches agents how to **create and maintain repository guidance files** (`AGENTS.md`, companions, adapters, `STACK.md`) using repo context — work the CLI cannot fully judge.
+For AgentKit, the skill teaches agents how to **create and maintain repository guidance files** (`AGENTS.md`, companions, adapters, `STACK.md`) and help users understand recent codebase changes using repo context — work the CLI cannot fully judge.
 
 ---
 
@@ -43,15 +44,16 @@ Layer 2 — SKILL.md body (<500 lines, <5000 tokens recommended)
   router, non-negotiables, gotchas, when to load references
        ↓ agent picks workflow
 Layer 3 — references/, scripts/, assets/ (on demand)
-  init.md, update.md, doctor.md, file-contract.md, template mirrors
+  init.md, update.md, doctor.md, repair.md, learn.md, file-contract.md, template mirrors
 ```
 
 **Implications for AgentKit:**
 
 - Keep `SKILL.md` as the **router + shared contract**, not the full init procedure.
-- Put step-by-step workflows in `references/init.md` (and later `update.md`, `doctor.md`).
+- Put step-by-step workflows in route references: `references/init.md`, `references/update.md`, `references/doctor.md`, `references/repair.md`, and `references/learn.md`.
 - Put file inventory, managed-block rules, and edit boundaries in `references/file-contract.md`.
 - Mirror bundled CLI templates under `assets/templates/` so agents read canonical content without duplicating prose in the skill.
+- Keep `agents/openai.yaml` as minimal OpenAI-facing metadata for display name, short description, and default prompt.
 
 **File reference rule:** link one level deep from `SKILL.md` (e.g. `references/init.md`). Avoid chains like `SKILL.md → a.md → b.md`.
 
@@ -63,18 +65,20 @@ AgentKit uses **one** `agentkit` skill with internal workflow routes.
 
 | Approach | Verdict |
 | --- | --- |
-| One `agentkit` skill + `references/init|update|doctor.md` | **Recommended** — shared file contract, one install, one description to tune |
-| Separate `agentkit-init`, `agentkit-update`, `agentkit-doctor` skills | Avoid — duplicated contract, version drift, triple install UX |
+| One `agentkit` skill + `references/init|update|doctor|repair|learn.md` | **Recommended** — shared file contract, one install, one description to tune |
+| Separate `agentkit-init`, `agentkit-update`, `agentkit-doctor`, `agentkit-repair`, `agentkit-learn` skills | Avoid — duplicated contract, version drift, fragmented install UX |
 | Workflow summary in YAML `description` | Avoid — agents shortcut the body and skip the router |
 
-`init`, `update`, and `doctor` share:
+`init`, `update`, `doctor`, and `repair` share:
 
 - The same managed-block format
 - The same file inventory rules
 - The same `AGENTS.md`-first source-of-truth model
 - The same `agentkit.config.json` semantics
 
-They differ only in **procedure** — perfect fit for `references/` routes, not separate skills.
+`learn` shares the same installed skill surface and repo-context workflow, but is read-only by default and teaches codebase changes instead of maintaining guidance files.
+
+They differ in **procedure** — perfect fit for `references/` routes, not separate skills.
 
 ### Router design pattern
 
@@ -94,10 +98,18 @@ Read `references/file-contract.md` before editing any AgentKit-managed file.
 3. User asks to **doctor**, **audit**, or **review** guidance quality
    → `references/doctor.md`
 
-4. Unsure which workflow applies
+4. User asks to **repair**, **fix malformed blocks**, **convert unmanaged guidance**, or **fix adapters**
+   → `references/repair.md`
+
+5. User asks to **learn**, **understand recent changes**, **explain the session**, **teach me what changed**, **ELI5**, **ELI14**, **explain like an intern**, or **check my understanding**
+   → `references/learn.md`
+
+6. Unsure which workflow applies
    → If no guidance files exist: `init.md`
    → If files exist but stale/wrong commands: `update.md`
    → If user wants a quality pass only: `doctor.md`
+   → If managed blocks are malformed or unmanaged files need conversion: `repair.md`
+   → If user wants to understand completed changes or a session: `learn.md`
 ```
 
 **Router rules:**
@@ -106,19 +118,11 @@ Read `references/file-contract.md` before editing any AgentKit-managed file.
 - **Procedures over declarations** — teach *how* to inspect the repo and decide what to write, not a single fixed file list for every project ([best practices](https://agentskills.io/skill-creation/best-practices#favor-procedures-over-declarations)).
 - **Do not embed full workflows in the router** — the router only decides *which reference to load*.
 
-### v1 stubs for deferred workflows
+### Shipped route references
 
-Ship `references/update.md` and `references/doctor.md` as short stubs in v1 so the router stays stable:
+Every shipped guidance-edit route reference should start by loading `references/file-contract.md`, keep the procedure concise, and push route-specific detail into that route file instead of `SKILL.md`. Read-only routes such as `learn` should state their no-write default clearly.
 
-```markdown
-# agentkit update (not yet available in this package version)
-
-This workflow is not shipped in v0.9.x. Tell the user:
-- Template-path repos: run CLI `agentkit update`
-- Skill-path repos: this workflow is coming soon; manually edit or re-run init for missing files
-```
-
-Stubs prevent the agent from improvising update/doctor behavior without guidance.
+The router stays stable by pointing to real route files for `/agentkit init`, `/agentkit update`, `/agentkit doctor`, `/agentkit repair`, and `/agentkit learn`. If a future workflow is not implemented, ship a short reference that clearly says so rather than letting the agent improvise.
 
 ---
 
@@ -139,7 +143,7 @@ Official guidance ([optimizing descriptions](https://agentskills.io/skill-creati
 ```yaml
 ---
 name: agentkit
-description: Use when bootstrapping, updating, or auditing AgentKit-managed repository guidance (AGENTS.md, STACK.md, companion guides) in a skill-path project — including after agentkit skill install, when guidance files are missing, placeholders remain, project commands are stale, or the user asks to run agentkit init, agentkit update, or agentkit doctor in the agent.
+description: Use when creating, syncing, auditing, repairing, or learning AgentKit-managed repository guidance and codebase changes in an agent session, especially after `agentkit skill install`, when `/agentkit init`, `/agentkit update`, `/agentkit doctor`, `/agentkit repair`, or `/agentkit learn` is requested, or when AGENTS.md, STACK.md, companion guides, managed blocks, commands, placeholders, AI tool adapters, recent diffs, or completed changes need context-aware maintenance or explanation.
 compatibility: Requires agentkit CLI and agentkit.config.json with installMode skill, or existing AgentKit-managed files with block markers.
 metadata:
   author: thomas-agentkit
@@ -153,7 +157,7 @@ metadata:
 | --- | --- |
 | "Creates AGENTS.md, then updates stack, then runs checklist" | Agent follows description instead of reading router ([CSO trap](https://agentskills.io/skill-creation/best-practices)) |
 | "Helps with documentation" | Too vague to trigger |
-| "Use for init" only | Misses update/doctor/stale-guidance triggers |
+| "Use for init" only | Misses update/doctor/repair/learn/stale-guidance triggers |
 
 ### Trigger eval queries (recommended)
 
@@ -164,6 +168,8 @@ Maintain `evals/trigger-queries.json` (~20 queries: 10 should-trigger, 10 should
 - "I ran agentkit skill install — set up my AGENTS.md from this Next.js repo"
 - "my AGENTS.md still has [Project Name] placeholders"
 - "run agentkit doctor on our guidance files"
+- "repair the malformed agentkit managed block in AGENTS.md"
+- "teach me what changed in that refactor and quiz me on the edge cases"
 - "we switched from npm to pnpm, update the command table in AGENTS.md"
 
 **Should not trigger (near-misses):**
@@ -200,7 +206,7 @@ From [best practices — spending context wisely](https://agentskills.io/skill-c
 
 ### Coherent unit test
 
-The `agentkit` skill should cover **one coherent unit**: maintaining AgentKit guidance files in a repository. It should not also cover general code review, feature implementation, or CLI packaging — those are separate skills or the main agent job.
+The `agentkit` skill should cover **one coherent product surface**: maintaining AgentKit guidance files in a repository and helping the user understand completed codebase changes from an AgentKit session. It should not also cover general code review findings, feature implementation, debugging, or CLI packaging — those are separate skills or the main agent job.
 
 ---
 
@@ -213,6 +219,8 @@ Match prescriptiveness to fragility ([best practices — calibrating control](ht
 | **init** | High — wrong files, no managed blocks, overwritten user edits | Prescriptive: checklist, plan-validate-execute, mandatory `file-contract.md` |
 | **update** | High — must not touch user sections; must sync real repo state | Prescriptive: diff plan before write, validate against `file-contract.md` |
 | **doctor** | Lower — audit can use judgment | Flexible: severity rubric (Blocker / Concern / Suggestion), report template |
+| **repair** | High — structural edits can corrupt user guidance | Prescriptive: explicit user request, ownership check, repair only clear cases |
+| **learn** | Lower — read-only teaching can adapt to the user | Flexible: inspect changes, teach incrementally, check understanding |
 
 ### init — prescriptive patterns
 
@@ -258,6 +266,14 @@ Provide a **report template** ([templates for output format](https://agentskills
 - ...
 ```
 
+### repair — structural safety patterns
+
+Use `references/repair.md` only after an explicit repair, conversion, malformed block, or adapter-fix request. The repair workflow should preserve user-written content, repair only clear ownership cases, defer ambiguous marker boundaries, and recommend `/agentkit update` after structural issues are fixed.
+
+### learn — teaching patterns
+
+Use `references/learn.md` when the user wants to understand recent changes, a diff, a completed implementation, or the session. The learn workflow is read-only by default, starts by asking the user to restate their understanding, keeps the learning checklist in conversation, and teaches problem, solution, code flow, edge cases, validation, and impact incrementally.
+
 ---
 
 ## 7. Gotchas (highest-value content)
@@ -273,6 +289,8 @@ Keep project-specific gotchas in `SKILL.md` or early in `references/file-contrac
 | Personalization only at CLI on template path | Skill path: agent fills placeholders from repo during skill init. |
 | Managed blocks required for CLI `update` | Skill init must wrap AgentKit-owned sections in markers. |
 | User edits outside blocks | CLI `update` preserves them; skill workflows must too. |
+| Malformed managed blocks | Use `/agentkit repair` before update/refresh; do not guess unclear ownership. |
+| Learning workflow | `/agentkit learn` is read-only by default and should not create Markdown notes unless the user explicitly asks. |
 | `templateSet: minimal` | Do not install `TESTING.md`, `WORKFLOWS.md`, etc. |
 | AI tool adapters | Thin pointers to `AGENTS.md` — do not duplicate operating rules. |
 | Invented npm scripts | Commands must come from `package.json` scripts or user-provided config. |
@@ -358,10 +376,14 @@ Also run `skills-ref validate ./templates/skills/agentkit` in CI ([spec validati
 ```
 templates/skills/agentkit/
 ├── SKILL.md
+├── agents/
+│   └── openai.yaml        # OpenAI-facing display metadata
 ├── references/
 │   ├── init.md
-│   ├── update.md          # stub in v0.9.x
-│   ├── doctor.md          # stub in v0.9.x
+│   ├── update.md
+│   ├── doctor.md
+│   ├── repair.md
+│   ├── learn.md
 │   └── file-contract.md
 ├── assets/
 │   └── templates/         # mirror of templates/ at package build or copy time
@@ -397,8 +419,10 @@ The skill and CLI must agree on mechanics ([PRD](./prd-agentkit-skills-path.md))
 | `agentkit init` (terminal) | CLI — templates only |
 | `agentkit init` (agent) | Skill — creates guidance files |
 | `agentkit update` (terminal) | CLI — template-path managed-block merge |
-| `agentkit update` (agent) | Skill — deferred |
-| `agentkit doctor` (agent) | Skill — deferred |
+| `agentkit update` (agent) | Skill — syncs guidance to repo changes |
+| `agentkit doctor` (agent) | Skill — audits guidance quality |
+| `agentkit repair` (agent) | Skill — repairs guidance structure after explicit request |
+| `agentkit learn` (agent) | Skill — teaches recent codebase changes and checks understanding |
 | Managed block format | Shared contract in `file-contract.md` |
 | `agentkit.config.json` schema | CLI writes; skill reads |
 
@@ -417,7 +441,7 @@ The skill and CLI must agree on mechanics ([PRD](./prd-agentkit-skills-path.md))
 
 - [ ] Explicit Route section with ordered conditions
 - [ ] `file-contract.md` loaded before any edits
-- [ ] Stubs for unreleased workflows (update, doctor)
+- [ ] Routes exist for init, update, doctor, repair, and learn
 
 **Content quality**
 
@@ -438,6 +462,7 @@ The skill and CLI must agree on mechanics ([PRD](./prd-agentkit-skills-path.md))
 - [ ] Produced files compatible with CLI `agentkit update --dry-run`
 - [ ] Skill does not duplicate CLI install behavior
 - [ ] Docs distinguish CLI vs agent `agentkit init`
+- [ ] `agents/openai.yaml` remains minimal OpenAI-facing metadata
 
 ---
 
