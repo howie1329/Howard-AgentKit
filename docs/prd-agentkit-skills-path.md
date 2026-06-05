@@ -1,6 +1,6 @@
 # PRD: AgentKit Skills Path
 
-> **Status:** Draft for GitHub issue (revised — Option A)  
+> **Status:** Approved for implementation — see [agentkit-skills-path-implementation.md](./agentkit-skills-path-implementation.md)  
 > **Target release:** v0.9.x  
 > **Author:** Howard Thomas + AgentKit planning session
 
