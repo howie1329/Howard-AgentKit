@@ -19,7 +19,7 @@ For routine bugfixes and small features, do not open `WORKFLOWS.md`, planning te
 | Trigger | Action |
 | --- | --- |
 | Any file edits (final message) | Use the change-explanation format in **After Coding (Required)**; see `CHANGE-EXPLANATION.md` for detail |
-| UI, components, styling, layout | Read `[design system path, e.g. docs/design-system.md]` or `DESIGN-SYSTEM.md` |
+| UI, components, styling, layout | Read `DESIGN.md` or `[design system path, e.g. docs/design-system.md]` when set |
 | Review, refactor, dependencies | Read `CODE-QUALITY.md` |
 | Tests, fixtures, QA strategy | Read `TESTING.md` if present |
 | Auth, permissions, secrets, PII | Read `SECURITY-CHECKLIST.md` if present |

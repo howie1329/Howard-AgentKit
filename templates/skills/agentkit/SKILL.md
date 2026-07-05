@@ -1,6 +1,6 @@
 ---
 name: agentkit
-description: Use when creating, syncing, auditing, repairing, or learning AgentKit-managed repository guidance and codebase changes in an agent session, especially after `agentkit skill install`, when `/agentkit init`, `/agentkit update`, `/agentkit doctor`, `/agentkit repair`, or `/agentkit learn` is requested, or when AGENTS.md, STACK.md, companion guides, managed blocks, commands, placeholders, AI tool adapters, recent diffs, or completed changes need context-aware maintenance or explanation.
+description: Use when creating, syncing, auditing, repairing, or learning AgentKit-managed repository guidance and codebase changes in an agent session, especially after `agentkit skill install`, when `/agentkit init`, `/agentkit update`, `/agentkit doctor`, `/agentkit repair`, `/agentkit learn`, or `/agentkit design` is requested, or when AGENTS.md, DESIGN.md, STACK.md, companion guides, managed blocks, commands, placeholders, AI tool adapters, recent diffs, or completed changes need context-aware maintenance or explanation.
 compatibility: Requires agentkit CLI and agentkit.config.json with installMode skill, or existing AgentKit-managed files with block markers.
 metadata:
   author: thomas-agentkit
@@ -14,11 +14,12 @@ Create, sync, audit, repair, and teach AgentKit-managed repository guidance and 
 ## When to use
 
 - User ran `agentkit skill install`
-- User asks `/agentkit init`, `/agentkit update`, `/agentkit doctor`, `/agentkit repair`, or `/agentkit learn`
-- `AGENTS.md`, `STACK.md`, companion guides, or AI adapters are missing
+- User asks `/agentkit init`, `/agentkit update`, `/agentkit doctor`, `/agentkit repair`, `/agentkit learn`, or `/agentkit design`
+- `AGENTS.md`, `DESIGN.md`, `STACK.md`, companion guides, or AI adapters are missing
 - Guidance has stale commands, stack details, project paths, placeholders, or broken references
 - Managed blocks need context-aware update, audit, or repair
 - User wants to understand recent codebase changes, a completed implementation, a diff, a bug fix, or the session
+- User wants to create or refresh `DESIGN.md` from a design baseline
 
 ## When not to use
 
@@ -47,12 +48,16 @@ Always read `references/file-contract.md` before editing or auditing AgentKit-ma
 5. User asks to **learn**, **understand recent changes**, **explain the session**, **teach me what changed**, **ELI5**, **ELI14**, **explain like an intern**, or **check my understanding**
    → `references/learn.md`
 
-6. Unsure which workflow applies
+6. User asks to **design**, set up **DESIGN.md**, choose a design baseline, or customize design language
+   → `references/design.md`
+
+7. Unsure which workflow applies
    → If no guidance files exist: `references/init.md`
    → If guidance exists but commands, stack, files, placeholders, adapters, or references are stale: `references/update.md`
    → If user wants audit, doctor, health check, diagnosis, or review: `references/doctor.md`
    → If managed blocks are malformed or unmanaged files need conversion: `references/repair.md`
    → If user wants to understand completed changes or a session: `references/learn.md`
+   → If user wants `DESIGN.md` or design baseline selection: `references/design.md`
 
 ## Non-negotiables
 
@@ -77,9 +82,10 @@ Always read `references/file-contract.md` before editing or auditing AgentKit-ma
 | `templateSet: full` | Full guidance docs; adapters still follow `aiTools` |
 | AI tool adapters | Thin pointers to `AGENTS.md`; never duplicate full guidance |
 | `STACK.md` | Create/update when preset is configured, user asks, or stack is confidently inferred |
+| `DESIGN.md` | Comes from bundled baseline in `designSystem` config or `/agentkit design`; map tokens to project theme |
 | Existing unmanaged files | Skip unless user asks to convert |
 | Malformed managed blocks | Use `/agentkit repair` before update/refresh |
-| Learning workflow | `/agentkit learn` teaches from diffs and code; it does not create notes or files by default |
+| Learning workflow | `/agentkit learn` is read-only by default and should not create Markdown notes unless the user explicitly asks |
 | Docs-only guidance workflow | Does not require running project tests/builds |
 
 ## Quick reference
@@ -91,4 +97,5 @@ Always read `references/file-contract.md` before editing or auditing AgentKit-ma
 | "/agentkit doctor" / "audit AgentKit guidance" | `references/doctor.md` |
 | "/agentkit repair" / "fix managed blocks" | `references/repair.md` |
 | "/agentkit learn" / "teach me what changed" | `references/learn.md` |
+| "/agentkit design" / "create DESIGN.md" | `references/design.md` |
 | Before any file edit | `references/file-contract.md` |

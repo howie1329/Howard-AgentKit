@@ -294,7 +294,7 @@ Keep project-specific gotchas in `SKILL.md` or early in `references/file-contrac
 | `templateSet: minimal` | Do not install `TESTING.md`, `WORKFLOWS.md`, etc. |
 | AI tool adapters | Thin pointers to `AGENTS.md` — do not duplicate operating rules. |
 | Invented npm scripts | Commands must come from `package.json` scripts or user-provided config. |
-| `DESIGN-SYSTEM.md` | Comes from bundled design-system variant in config, not invented styling rules. |
+| `DESIGN.md` | Comes from bundled design baseline in config or `/agentkit design`; map tokens to project theme. |
 | `STACK.md` | Only when preset is set in config; use bundled stack guidance patterns. |
 
 When an agent makes a mistake in testing, add the correction here — this is the fastest improvement loop.

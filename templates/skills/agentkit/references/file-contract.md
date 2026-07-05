@@ -15,7 +15,7 @@ Read `agentkit.config.json` from the repository root when present:
 | `templateSet` | `minimal`, `standard`, or `full`; determines configured guidance inventory |
 | `preset` | Stack preset (`next`, `sveltekit`, `express`, `convex`, `fullstack`) used for `STACK.md` |
 | `aiTools` | Which thin adapter files to create (`codex`, `cursor`, `claude`, `copilot`) |
-| `designSystem` | `linear` or `apple`; style lens for `DESIGN-SYSTEM.md` |
+| `designSystem` | `linear`, `apple`, `cursor`, `framer`, `notion`, or `warp`; baseline for `DESIGN.md` |
 | `personalization` | Fallback defaults for project name, commands, and paths; repo facts win when available |
 
 Prefer repository facts over config personalization. Use config values as defaults, not as a reason to ignore visible codebase reality.
@@ -26,6 +26,7 @@ Prefer repository facts over config personalization. Use config values as defaul
 - `agentkit update`: refresh valid AgentKit managed blocks and create missing configured files; skip unmanaged files by default.
 - `agentkit doctor`: audit guidance quality and report findings; do not edit by default.
 - `agentkit learn`: teach recent codebase changes; do not edit or create files by default.
+- `agentkit design`: create or refresh `DESIGN.md` from a bundled baseline; skip existing file unless user asks to refresh.
 - Refresh, conversion, repair, or wholesale regeneration requires an explicit user request.
 
 ## File Inventory
@@ -41,7 +42,7 @@ Prefer repository facts over config personalization. Use config values as defaul
 - `AGENTS.md`
 - `CHANGE-EXPLANATION.md`
 - `CODE-QUALITY.md`
-- `DESIGN-SYSTEM.md`
+- `DESIGN.md`
 - `.github/pull_request_template.md`
 
 `full`:
@@ -82,7 +83,7 @@ When `STACK.md` exists or will be created, `AGENTS.md` should tell agents to rea
 - `STACK.md`: stack-specific guidance based on repo facts and configured or inferred preset.
 - `CHANGE-EXPLANATION.md`: handoff, summary, and change-explanation expectations.
 - `CODE-QUALITY.md`: review, refactor, and maintainability guidance; reference commands from `AGENTS.md`.
-- `DESIGN-SYSTEM.md`: UI/design guidance for detected or configured UI surfaces.
+- `DESIGN.md`: UI/design spec from configured or chosen baseline; map semantic tokens to project theme.
 - `.github/pull_request_template.md`: concise PR checklist; do not over-personalize per-work-item templates.
 - `TESTING.md`: detected test tools, test locations, and real test commands.
 - `SECURITY-CHECKLIST.md`: project-relevant security boundaries such as auth, secrets, API inputs, and data access.
@@ -103,7 +104,7 @@ Generated content
 
 Rules:
 
-- Use stable ids, such as `agents`, `stack`, `design-system`, `testing`, or `security-checklist`.
+- Use stable ids, such as `agents`, `stack`, `design`, `testing`, or `security-checklist`.
 - For new files, usually wrap the full AgentKit-generated body in one top-level managed block.
 - Adapters can be fully managed because they should only point to `AGENTS.md`.
 - Preserve all user edits before and after managed blocks.
@@ -135,7 +136,7 @@ Replace bracket placeholders with real values from the repo or omit the placehol
 | `[Project Name]` | `package.json` name or directory name |
 | `[short project description]` | `package.json` description or README first paragraph |
 | `[issue tracker, e.g. Linear or GitHub Issues]` | `personalization.issueTracker` or infer from `.github/` |
-| `[design system path, e.g. docs/design-system.md]` | `personalization.designSystemPath`, existing design docs, or `DESIGN-SYSTEM.md` |
+| `[design system path, e.g. docs/design-system.md]` | `personalization.designSystemPath`, existing design docs, or `DESIGN.md` |
 | `[briefs path, e.g. docs/briefs]` | `personalization.briefsPath`, existing docs path, or omit |
 | Project commands | Real scripts from `package.json` or explicit user/config personalization |
 
